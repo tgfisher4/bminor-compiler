@@ -1,0 +1,4 @@
+arr: array [3] function;
+arr: array [3] string = {"why" "hello" "there"};
+arr: array [3] string = {"why", "hello", "there"};
+arr: array [3] string = {1, 2, 3};

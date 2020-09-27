@@ -1,0 +1,13 @@
+""
+"last one was blank"
+" that was a space"
+"\nthat was a newline"
+"Here's a null char mid-string: \0 other text"
+" \" valid escape quotes \" "
+" \\ literal backslashes "
+" \x literal chars \] \- \xd"
+"backslash\
+        new line (after spaces)"
+"backslash\
+new line (no spaces)"
+"backslash\	tab"

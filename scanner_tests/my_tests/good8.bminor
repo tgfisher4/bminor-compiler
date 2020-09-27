@@ -1,0 +1,12 @@
+factorial: function integer ( x: integer ) = {
+    if (x < 0) return -1;
+    if (x < 3) return x;
+    return factorial(x-1);
+}
+
+main: function int (int argc, char** argv){
+    print "Hello, world!";
+    x: int = 4
+    print x, " factorial is ", factorial(x), "\n";
+    return -0;
+}

@@ -1,0 +1,26 @@
+A
+// hello there
+/* */
+/* *8 // */
+/* *8 //
+        */ hEllO
+/* *8 // /* *\/ *x/ hello */
+a
+""
+"the last one was blank"
+" that was a space"
+" \" valid escaped quotes\" "
+"\nafter newline"
+//"next one should fail as just '\"' \\""
+//'12'
+'1'
+'\7'
+'x'
+'\n'
+'\''
+12
++00000016
+else,;^
+//aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+---
+'	'

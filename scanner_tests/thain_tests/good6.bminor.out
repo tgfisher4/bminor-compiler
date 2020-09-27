@@ -1,0 +1,29 @@
+IDENT str
+COLON
+STRING
+ASGN
+STR_LIT 
+S_COL
+IDENT str
+COLON
+STRING
+ASGN
+STR_LIT we can write an escaped backslash \
+S_COL
+STR_LIT  "this is a unique test case " 
+S_COL
+STR_LIT  
+ t 
+STR_LIT e r y
+IDENT str
+COLON
+STRING
+ASGN
+STR_LIT single qoute ' or ' 
+S_COL
+IDENT str
+COLON
+STRING
+ASGN
+STR_LIT  double qoute " 
+S_COL

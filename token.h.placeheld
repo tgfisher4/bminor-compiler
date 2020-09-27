@@ -1,0 +1,11 @@
+typedef enum {
+    TOKEN_EOF=0,
+    <keywords_placeholder>,
+    <literal_tokens_placeholder>,
+    IDENT,
+    STR_LIT,
+    INT_LIT,
+    CHAR_LIT,
+    INTERNAL_ERR,
+    SCAN_ERR
+} token_t;

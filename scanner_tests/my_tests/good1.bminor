@@ -1,0 +1,10 @@
+// some valid chars
+'\''
+'\\'
+'\n'
+'\0'
+'\p'
+'\3'
+'	' // literal tab character
+';'
+'"'

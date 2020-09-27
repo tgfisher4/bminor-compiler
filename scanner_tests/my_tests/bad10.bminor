@@ -1,0 +1,2 @@
+// no bitwise 'and' or 'or' operators; no property of '.' operator
+. & |

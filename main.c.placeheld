@@ -1,0 +1,109 @@
+#include <stdio.h>
+#include "token.h"
+#include <string.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <errno.h>
+
+extern FILE *yyin;
+extern int   yylex();
+extern char *yytext;
+extern int   last_int_literal;
+extern char  last_char_literal;
+extern char *last_string_literal;
+
+int scan_file(char *filename);
+void process_cl_args(int, char**, bool*, char**);
+
+void usage(int return_code, char *called_as){
+    printf(
+"usage: %s [options]\n"
+"\n"
+"Options:\n"
+"   -scan <file>    Scans <file>\n"
+            , called_as);
+    exit(return_code);
+}
+
+int main(int argc, char **argv){
+    // default values
+    bool scan;
+    char *to_compile = "";
+
+    /* process CL args */
+    process_cl_args(argc, argv, &scan, &to_compile);
+
+    /* scan */
+    if(scan && scan_file(to_compile)) return EXIT_FAILURE;
+    return EXIT_SUCCESS;
+}
+
+void process_cl_args(int argc, char **argv, bool *scan, char **to_compile){ 
+    *scan = false;
+
+    for (int i = 1; i < argc; i++){
+        if (!strcmp("-scan", argv[i])){
+            *scan = true;
+        }
+        else if ( !strcmp("-help", argv[i]) || !strcmp("-h", argv[i]) ){
+            usage(EXIT_SUCCESS, argv[0]);
+        }
+        else {
+            // if we've already assign the file to compile
+            if (**to_compile)   usage(EXIT_FAILURE, argv[0]);
+            // shouldn't need to worry about data pointed to going out of scope here since this isn't being assigned to something on the stack
+            else                *to_compile = argv[i];
+        }
+    }
+}
+
+int scan_file(char *filename){ 
+    /* Runs the flex-generated scanner on the file with name given by 'filename'
+        - returns 1 on failure, 0 on success */
+
+    /* An array of strings, where token_strs[<token>] = "<token name as str>", where <token> is a value of the enum token_t and <token name as str> is the symbolic name given to <token> in the enum token_t. Substituted by the Makefile via sed, ensuring the array is up to date with token.h */
+    char* token_strs[] = <token_str_arr_placeholder>;
+
+    yyin = fopen(filename, "r");
+    int ret_val = 1;
+    if(!yyin) {
+        printf("Could not open %s! %s\n", filename, strerror(errno));
+        return 1;
+    }
+    while(1) {
+        token_t t = yylex();
+        switch(t){
+            case TOKEN_EOF:
+                ret_val = 0;
+                goto cleanup;
+            case SCAN_ERR:
+                fprintf(stderr, "Scan error - invalid token: %s\n", yytext);
+                ret_val = 1;
+                goto cleanup;
+            case INTERNAL_ERR:
+                fprintf(stderr, "Internal error: %s (sorry!)\n", strerror(errno));
+                ret_val = 1;
+                goto cleanup;
+            case IDENT:
+                printf("%s %s\n", token_strs[t], yytext);
+                break;
+            case STR_LIT:
+                printf("%s %s\n", token_strs[t], last_string_literal);
+                free(last_string_literal);
+                break;
+            case INT_LIT:
+                printf("%s %d\n", token_strs[t], last_int_literal);
+                break;
+            case CHAR_LIT:
+                printf("%s %c\n", token_strs[t], last_char_literal);
+                break;
+            default:
+                printf("%s\n", token_strs[t]);
+                break;
+        }
+    }
+    cleanup:
+    fclose(yyin);
+    return ret_val;
+}
+
