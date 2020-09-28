@@ -1,0 +1,139 @@
+%{
+#include <stdio.h>
+#define YYSTYPE int
+
+extern char *yytext;
+extern int yylex();
+extern int yyerror( char *str );
+%}
+
+%token TOKEN_EOF
+<keywords_placeholder>
+<literal_tokens_placeholder>
+%token IDENT
+%token STR_LIT
+%token INT_LIT
+%token CHAR_LIT
+%token INTERNAL_ERR
+%token SCAN_ERR
+
+%%
+
+program : expr  {{return 0;}}
+        ;
+
+/* expression: can be treated as a single value */
+expr : expr10
+     ;
+
+/* l-value: can be assigned to */
+lvalue: IDENT L_BRK expr R_BRK
+      | IDENT
+      ;
+
+/* assignment: = */
+expr10: lvalue ASGN expr10
+      | lvalue ASGN arr_lit
+      | expr9
+      ;
+
+/* logical or: || (lower precedence bc add in bool alg */
+expr9 : expr9 OR expr8
+      | expr8
+      ;
+/* logical and: && (higher precedence bc mult in bool alg */
+expr8 : expr8 AND expr7
+      | expr7
+      ;
+
+/* comparisons: < <= > >= == != */
+expr7 : expr7 LT expr6
+      | expr7 LT_EQ expr6
+      | expr7 GT expr6
+      | expr7 GT_EQ expr6
+      | expr7 EQ expr6
+      | expr7 NOT_EQ expr6
+      | expr6
+      ;
+
+/* binary add/sub: + - */
+expr6 : expr6 PLUS expr5
+      | expr6 MINUS expr5
+      | expr5
+      ;
+
+/* mult/div/mod: * / % */
+expr5 : expr5 STAR expr4
+      | expr5 SLASH expr4
+      | expr5 PRCT expr4
+      | expr4
+      ;
+
+/* exponentiaion: ^ */
+expr4 : expr4 CARET expr3
+      | expr3
+      ;
+
+/* unary operators: + - ! */
+expr3 : PLUS expr3
+      | MINUS expr3
+      | NOT expr3
+      | expr2
+      ;
+
+/* unary postfix decrement/increment */
+expr2 : expr2 DEC
+      | expr2 INC
+      | expr1
+      ;
+
+/* grouping: () [] f() */
+expr1 : L_PAR expr R_PAR
+      | L_BRK expr R_BRK
+      | func_call
+      | atom
+      ;
+
+/* atom: lowest form of expression */
+atom: lvalue
+    | STR_LIT
+    | INT_LIT
+    | CHAR_LIT
+    ;
+
+/*
+expr2 : lvalue DEC
+      | lvalue INC
+      | DEC lvalue
+      | INC lvalue
+      | L_PAR expr R_PAR
+      | func_call
+      | atom
+      ;
+*/
+
+/* function call: <function name>(<arg list>) */
+func_call: IDENT L_PAR maybe_expr_comma_list R_PAR
+         ;
+
+/* array literal: {<value list>} - used to initialize arrays at declaration */
+arr_lit : IDENT L_BRC maybe_expr_comma_list R_BRC
+        ;
+
+/* maybe comma separated list : comma list of empty */
+maybe_expr_comma_list: /* empty */
+                     | expr_comma_list
+                     ;
+
+/* comma list: arbirary number of values separated by commas */
+expr_comma_list: expr
+               | expr COMMA comma_list
+               ;
+
+%%
+
+int yyerror( char *str )
+{
+    printf("parse error: %s\n",str);
+    return 0;
+}

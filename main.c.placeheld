@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <errno.h>
 
+typedef enum yytokentype token_t;
+
 extern FILE *yyin;
 extern int   yylex();
 extern char *yytext;
@@ -12,8 +14,15 @@ extern int   last_int_literal;
 extern char  last_char_literal;
 extern char *last_string_literal;
 
+extern int yyparse();
+
 int scan_file(char *filename);
+int parse_file(char *filename);
 void process_cl_args(int, char**, bool*, char**);
+
+/* stages */
+int SCAN  = 0,
+    PARSE = 1;
 
 void usage(int return_code, char *called_as){
     printf(
@@ -27,23 +36,29 @@ void usage(int return_code, char *called_as){
 
 int main(int argc, char **argv){
     // default values
-    bool scan;
+    bool stages[] = {false, false, false, false};
     char *to_compile = "";
 
     /* process CL args */
-    process_cl_args(argc, argv, &scan, &to_compile);
+    process_cl_args(argc, argv, stages, &to_compile);
 
     /* scan */
-    if(scan && scan_file(to_compile)) return EXIT_FAILURE;
+    if(stages[SCAN] && scan_file(to_compile)) return EXIT_FAILURE;
+
+    /* parse */
+    if(stages [PARSE] && parse_file(to_compile)) return EXIT_FAILURE;
+
     return EXIT_SUCCESS;
 }
 
-void process_cl_args(int argc, char **argv, bool *scan, char **to_compile){ 
-    *scan = false;
+void process_cl_args(int argc, char **argv, bool *stages, char **to_compile){ 
 
     for (int i = 1; i < argc; i++){
         if (!strcmp("-scan", argv[i])){
-            *scan = true;
+             stages[SCAN] = true;
+        }
+        else if (!strcmp("-parse", argv[i])){
+            stages[PARSE] = true;
         }
         else if ( !strcmp("-help", argv[i]) || !strcmp("-h", argv[i]) ){
             usage(EXIT_SUCCESS, argv[0]);
@@ -55,6 +70,18 @@ void process_cl_args(int argc, char **argv, bool *scan, char **to_compile){
             else                *to_compile = argv[i];
         }
     }
+}
+
+int parse_file(char *filename){
+    yyin = fopen(filename, "r");
+    if(!yyin) {
+        printf("Could not open %s! %s\n", filename, strerror(errno));
+        return 1;
+    }
+    // 0 for success, 1 for failure
+    int to_return = yyparse();
+    fclose(yyin);
+    return to_return;
 }
 
 int scan_file(char *filename){ 
