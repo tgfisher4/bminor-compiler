@@ -19,8 +19,55 @@ extern int yyerror( char *str );
 
 %%
 
-program : expr  {{return 0;}}
+program : stmt {{return 0;}}
         ;
+
+
+/* END PROGRAM ============================ BEGIN STATEMENTS */
+
+/*
+if and for statements need to be considered separately because they both end with statements
+    - if-else is obviously vulnerable to dangling else ambiguities
+    - once if-else solved, we need to be careful of for statements too. They end with a statement, meaning if we included them in a 'stmt' nonterminal and did nothing else, then it is possible that a for loop appears as the "then" body of an if-else statement and its 'stmt' might be a dangling if: then, we would have ambiguities again.
+
+    - Java's solution (https://docs.oracle.com/javase/specs/jls/se9/html/jls-14.html), which inspired mine: a statement can be anything we would think it would be. However, the "then" clause of an if-then statement can only contain a statement known not to end with a dangling if: this ensures that the "else" must match this "if" unambiguously. The statements known for sure not to end with a dangling if are those which do not end with another statement and those which do end with another statement, but that statement is known not to end with a dangling else.
+*/
+stmt : non_right_recursive_stmt
+     | if_stmt
+     | for_stmt
+     ;
+
+non_right_recursive_stmt : expr S_COL
+                         | L_BRC maybe_stmts R_BRC
+                         | PRINT maybe_expr_comma_list S_COL
+                         | RETURN maybe_expr S_COL
+                         ;
+
+if_stmt : IF L_PAR expr R_PAR stmt
+        | IF L_PAR expr R_PAR non_dangling_stmt ELSE stmt
+        | non_dangling_if
+        ;
+
+non_dangling_if : IF L_PAR expr R_PAR non_dangling_stmt ELSE non_dangling_stmt ;
+
+/* note that a non_dangling_stmt cannot reduce to a stmt directly, so there is no ambiguity here */
+for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
+        | non_dangling_for
+        ;
+
+/* statement not ending with a dangling if - "NoShortIf". The only place we use this in a rule besides to define other non_dangling structures is the if-else "then" body */
+non_dangling_stmt : non_right_recursive_stmt
+                  | non_dangling_for
+                  | non_dangling_if
+                  ;
+
+non_dangling_for : FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt ;
+
+maybe_stmts: /* empty */
+           | stmt maybe_stmts
+           ;
+
+/* END STATEMENTS ============================ BEGIN EXPRESSIONS */
 
 /* expression: can be treated as a single value */
 expr : expr10
@@ -32,8 +79,8 @@ lvalue: IDENT L_BRK expr R_BRK
       ;
 
 /* assignment: = */
-expr10: lvalue ASGN expr10
-      | lvalue ASGN arr_lit
+expr10: expr9 ASGN expr10
+      | expr9 ASGN arr_lit
       | expr9
       ;
 
@@ -127,8 +174,12 @@ maybe_expr_comma_list: /* empty */
 
 /* comma list: arbirary number of values separated by commas */
 expr_comma_list: expr
-               | expr COMMA comma_list
+               | expr COMMA expr_comma_list
                ;
+
+maybe_expr : /* empty */
+            | expr
+            ;
 
 %%
 

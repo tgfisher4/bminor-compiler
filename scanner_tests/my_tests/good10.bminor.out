@@ -1,0 +1,37 @@
+WHILE
+L_PAR
+INT_LIT 1
+R_PAR
+L_BRC
+PRINT
+STR_LIT she'll be coming around the mountain when she comes
+COMMA
+IDENT c
+S_COL
+IDENT sleep
+L_PAR
+INT_LIT 1
+R_PAR
+S_COL
+INC
+IDENT c
+INC
+S_COL
+STR_LIT that's 
+        undefined
+
+MINUS
+INT_LIT 23
+INT_LIT 234
+S_COL
+CHAR_LIT 
+
+IDENT x
+COLON
+INTEGER
+ASGN
+INT_LIT 0
+RETURN
+IDENT x
+S_COL
+R_BRC

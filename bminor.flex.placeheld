@@ -24,7 +24,7 @@ CPP_COMMENT "//".*
 IDENT       ({LETTER}|_)({LETTER}|{DIGIT}|_)*
 STRING_LIT  \"([^\n"\\]|\\(.|\n))*\"
 INT_LIT     {DIGIT}+
-INT_LIT_SIGN     ("+"|"-")?{DIGIT}+
+ /* INT_LIT_SIGN     ("+"|"-")?{DIGIT}+ */
 CHAR_LIT    '([^'\n\\]|\\.)'
 
 %%
@@ -45,7 +45,7 @@ CHAR_LIT    '([^'\n\\]|\\.)'
                             if (!last_string_literal)   return INTERNAL_ERR;
                             return strlen(last_string_literal) < 256 ? STR_LIT : SCAN_ERR;
                             }
-{INT_LIT}|{INT_LIT_SIGN}    {
+{INT_LIT}                   {
                             last_int_literal = atoi(yytext);
                             return INT_LIT;
                             }

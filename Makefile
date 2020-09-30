@@ -51,7 +51,7 @@ bminor_parse.c:	bminor.$(YACC)
 	@echo "Generating parser $@..."
 	$(YACC) $(YACCFLAGS) --defines=token.h --output=$@ $<
 
-token.h : bminor_parse.c
+token.h: bminor_parse.c
 
 bminor_scan.c:	bminor.$(LEX) token.h
 	@echo "Generating scanner $@..."
