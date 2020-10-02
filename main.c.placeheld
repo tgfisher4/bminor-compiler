@@ -43,12 +43,12 @@ int main(int argc, char **argv){
     process_cl_args(argc, argv, stages, &to_compile);
 
     /* scan */
-    if(stages[SCAN] && scan_file(to_compile)) return EXIT_FAILURE;
+    if(stages[SCAN] && scan_file(to_compile)) { printf ("scan unsuccessful\n"); return EXIT_FAILURE; }
 
     /* parse */
     if(stages [PARSE] && parse_file(to_compile)) { printf("parse unsuccessful\n"); return EXIT_FAILURE; }
 
-    printf("parse successful\n");
+    printf("%s successful\n", argv[1]+1);
 
     return EXIT_SUCCESS;
 }
