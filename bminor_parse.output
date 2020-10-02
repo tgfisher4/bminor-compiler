@@ -1,125 +1,133 @@
 Terminals unused in grammar
 
    TOKEN_EOF
-   ARRAY
    BOOLEAN
-   CHAR
    FALSE
-   FUNCTION
-   INTEGER
-   STRING
    TRUE
-   VOID
    WHILE
-   COLON
    INTERNAL_ERR
    SCAN_ERR
-
-
-State 107 conflicts: 16 reduce/reduce
-State 108 conflicts: 16 reduce/reduce
-State 110 conflicts: 16 reduce/reduce
 
 
 Grammar
 
     0 $accept: program $end
 
-    1 program: stmt
+    1 program: maybe_decls
 
-    2 stmt: non_right_recursive_stmt
-    3     | if_stmt
-    4     | for_stmt
+    2 maybe_decls: %empty
+    3            | decl maybe_decls
 
-    5 non_right_recursive_stmt: expr S_COL
-    6                         | L_BRC maybe_stmts R_BRC
-    7                         | PRINT maybe_expr_comma_list S_COL
-    8                         | RETURN maybe_expr S_COL
+    4 decl: IDENT COLON type S_COL
+    5     | IDENT COLON type ASGN expr S_COL
+    6     | IDENT COLON type ASGN L_BRC maybe_stmts R_BRC
 
-    9 if_stmt: IF L_PAR expr R_PAR stmt
-   10        | IF L_PAR expr R_PAR non_dangling_stmt ELSE stmt
-   11        | non_dangling_if
+    7 type: INTEGER
+    8     | STRING
+    9     | CHAR
+   10     | ARRAY L_BRK INT_LIT R_BRK type
+   11     | FUNCTION return_type L_PAR maybe_param_list R_PAR
 
-   12 non_dangling_if: IF L_PAR expr R_PAR non_dangling_stmt ELSE non_dangling_stmt
+   12 return_type: type
+   13            | VOID
 
-   13 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
-   14         | non_dangling_for
+   14 maybe_param_list: %empty
+   15                 | param_list
 
-   15 non_dangling_stmt: non_right_recursive_stmt
-   16                  | non_dangling_for
-   17                  | non_dangling_if
+   16 param_list: IDENT COLON type
+   17           | IDENT COLON type COMMA param_list
 
-   18 non_dangling_for: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt
+   18 stmt: non_right_recursive_stmt
+   19     | if_stmt
+   20     | for_stmt
 
-   19 maybe_stmts: %empty
-   20            | stmt maybe_stmts
+   21 non_right_recursive_stmt: expr S_COL
+   22                         | L_BRC maybe_stmts R_BRC
+   23                         | PRINT maybe_expr_comma_list S_COL
+   24                         | RETURN maybe_expr S_COL
 
-   21 expr: expr10
+   25 if_stmt: IF L_PAR expr R_PAR non_dangling_stmt ELSE stmt
+   26        | IF L_PAR expr R_PAR stmt
 
-   22 lvalue: IDENT L_BRK expr R_BRK
-   23       | IDENT
+   27 non_dangling_if: IF L_PAR expr R_PAR non_dangling_stmt ELSE non_dangling_stmt
 
-   24 expr10: expr9 ASGN expr10
-   25       | expr9 ASGN arr_lit
-   26       | expr9
+   28 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
 
-   27 expr9: expr9 OR expr8
-   28      | expr8
+   29 non_dangling_stmt: non_right_recursive_stmt
+   30                  | non_dangling_for
+   31                  | non_dangling_if
 
-   29 expr8: expr8 AND expr7
-   30      | expr7
+   32 non_dangling_for: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt
 
-   31 expr7: expr7 LT expr6
-   32      | expr7 LT_EQ expr6
-   33      | expr7 GT expr6
-   34      | expr7 GT_EQ expr6
-   35      | expr7 EQ expr6
-   36      | expr7 NOT_EQ expr6
-   37      | expr6
+   33 maybe_stmts: %empty
+   34            | stmt maybe_stmts
 
-   38 expr6: expr6 PLUS expr5
-   39      | expr6 MINUS expr5
-   40      | expr5
+   35 expr: expr10
 
-   41 expr5: expr5 STAR expr4
-   42      | expr5 SLASH expr4
-   43      | expr5 PRCT expr4
-   44      | expr4
+   36 lvalue: IDENT L_BRK expr R_BRK
+   37       | IDENT
 
-   45 expr4: expr4 CARET expr3
-   46      | expr3
+   38 expr10: expr9 ASGN expr10
+   39       | expr9 ASGN arr_lit
+   40       | expr9
 
-   47 expr3: PLUS expr3
-   48      | MINUS expr3
-   49      | NOT expr3
-   50      | expr2
+   41 expr9: expr9 OR expr8
+   42      | expr8
 
-   51 expr2: expr2 DEC
-   52      | expr2 INC
-   53      | expr1
+   43 expr8: expr8 AND expr7
+   44      | expr7
 
-   54 expr1: L_PAR expr R_PAR
-   55      | L_BRK expr R_BRK
-   56      | func_call
-   57      | atom
+   45 expr7: expr7 LT expr6
+   46      | expr7 LT_EQ expr6
+   47      | expr7 GT expr6
+   48      | expr7 GT_EQ expr6
+   49      | expr7 EQ expr6
+   50      | expr7 NOT_EQ expr6
+   51      | expr6
 
-   58 atom: lvalue
-   59     | STR_LIT
-   60     | INT_LIT
-   61     | CHAR_LIT
+   52 expr6: expr6 PLUS expr5
+   53      | expr6 MINUS expr5
+   54      | expr5
 
-   62 func_call: IDENT L_PAR maybe_expr_comma_list R_PAR
+   55 expr5: expr5 STAR expr4
+   56      | expr5 SLASH expr4
+   57      | expr5 PRCT expr4
+   58      | expr4
 
-   63 arr_lit: IDENT L_BRC maybe_expr_comma_list R_BRC
+   59 expr4: expr4 CARET expr3
+   60      | expr3
 
-   64 maybe_expr_comma_list: %empty
-   65                      | expr_comma_list
+   61 expr3: PLUS expr3
+   62      | MINUS expr3
+   63      | NOT expr3
+   64      | expr2
 
-   66 expr_comma_list: expr
-   67                | expr COMMA expr_comma_list
+   65 expr2: expr2 DEC
+   66      | expr2 INC
+   67      | expr1
 
-   68 maybe_expr: %empty
-   69           | expr
+   68 expr1: L_PAR expr R_PAR
+   69      | L_BRK expr R_BRK
+   70      | func_call
+   71      | atom
+
+   72 atom: lvalue
+   73     | STR_LIT
+   74     | INT_LIT
+   75     | CHAR_LIT
+
+   76 func_call: IDENT L_PAR maybe_expr_comma_list R_PAR
+
+   77 arr_lit: IDENT L_BRC expr_comma_list R_BRC
+
+   78 maybe_expr_comma_list: %empty
+   79                      | expr_comma_list
+
+   80 expr_comma_list: expr
+   81                | expr COMMA expr_comma_list
+
+   82 maybe_expr: %empty
+   83           | expr
 
 
 Terminals, with rules where they appear
@@ -127,52 +135,52 @@ Terminals, with rules where they appear
 $end (0) 0
 error (256)
 TOKEN_EOF (258)
-ARRAY (259)
+ARRAY (259) 10
 BOOLEAN (260)
-CHAR (261)
-ELSE (262) 10 12
+CHAR (261) 9
+ELSE (262) 25 27
 FALSE (263)
-FOR (264) 13 18
-FUNCTION (265)
-IF (266) 9 10 12
-INTEGER (267)
-PRINT (268) 7
-RETURN (269) 8
-STRING (270)
+FOR (264) 28 32
+FUNCTION (265) 11
+IF (266) 25 26 27
+INTEGER (267) 7
+PRINT (268) 23
+RETURN (269) 24
+STRING (270) 8
 TRUE (271)
-VOID (272)
+VOID (272) 13
 WHILE (273)
-L_PAR (274) 9 10 12 13 18 54 62
-R_PAR (275) 9 10 12 13 18 54 62
-L_BRK (276) 22 55
-R_BRK (277) 22 55
-L_BRC (278) 6 63
-R_BRC (279) 6 63
-INC (280) 52
-DEC (281) 51
-MINUS (282) 39 48
-NOT (283) 49
-CARET (284) 45
-STAR (285) 41
-SLASH (286) 42
-PRCT (287) 43
-PLUS (288) 38 47
-LT_EQ (289) 32
-LT (290) 31
-GT_EQ (291) 34
-GT (292) 33
-EQ (293) 35
-NOT_EQ (294) 36
-AND (295) 29
-OR (296) 27
-ASGN (297) 24 25
-COLON (298)
-S_COL (299) 5 7 8 13 18
-COMMA (300) 67
-IDENT (301) 22 23 62 63
-STR_LIT (302) 59
-INT_LIT (303) 60
-CHAR_LIT (304) 61
+L_PAR (274) 11 25 26 27 28 32 68 76
+R_PAR (275) 11 25 26 27 28 32 68 76
+L_BRK (276) 10 36 69
+R_BRK (277) 10 36 69
+L_BRC (278) 6 22 77
+R_BRC (279) 6 22 77
+INC (280) 66
+DEC (281) 65
+MINUS (282) 53 62
+NOT (283) 63
+CARET (284) 59
+STAR (285) 55
+SLASH (286) 56
+PRCT (287) 57
+PLUS (288) 52 61
+LT_EQ (289) 46
+LT (290) 45
+GT_EQ (291) 48
+GT (292) 47
+EQ (293) 49
+NOT_EQ (294) 50
+AND (295) 43
+OR (296) 41
+ASGN (297) 5 6 38 39
+COLON (298) 4 5 6 16 17
+S_COL (299) 4 5 21 23 24 28 32
+COMMA (300) 17 81
+IDENT (301) 4 5 6 16 17 36 37 76 77
+STR_LIT (302) 73
+INT_LIT (303) 10 74
+CHAR_LIT (304) 75
 INTERNAL_ERR (305)
 SCAN_ERR (306)
 
@@ -183,1976 +191,2481 @@ $accept (52)
     on left: 0
 program (53)
     on left: 1, on right: 0
-stmt (54)
-    on left: 2 3 4, on right: 1 9 10 13 20
-non_right_recursive_stmt (55)
-    on left: 5 6 7 8, on right: 2 15
-if_stmt (56)
-    on left: 9 10 11, on right: 3
-non_dangling_if (57)
-    on left: 12, on right: 11 17
-for_stmt (58)
-    on left: 13 14, on right: 4
-non_dangling_stmt (59)
-    on left: 15 16 17, on right: 10 12 18
-non_dangling_for (60)
-    on left: 18, on right: 14 16
-maybe_stmts (61)
-    on left: 19 20, on right: 6 20
-expr (62)
-    on left: 21, on right: 5 9 10 12 22 54 55 66 67 69
-lvalue (63)
-    on left: 22 23, on right: 58
-expr10 (64)
-    on left: 24 25 26, on right: 21 24
-expr9 (65)
-    on left: 27 28, on right: 24 25 26 27
-expr8 (66)
-    on left: 29 30, on right: 27 28 29
-expr7 (67)
-    on left: 31 32 33 34 35 36 37, on right: 29 30 31 32 33 34 35 36
-expr6 (68)
-    on left: 38 39 40, on right: 31 32 33 34 35 36 37 38 39
-expr5 (69)
-    on left: 41 42 43 44, on right: 38 39 40 41 42 43
-expr4 (70)
-    on left: 45 46, on right: 41 42 43 44 45
-expr3 (71)
-    on left: 47 48 49 50, on right: 45 46 47 48 49
-expr2 (72)
-    on left: 51 52 53, on right: 50 51 52
-expr1 (73)
-    on left: 54 55 56 57, on right: 53
-atom (74)
-    on left: 58 59 60 61, on right: 57
-func_call (75)
-    on left: 62, on right: 56
-arr_lit (76)
-    on left: 63, on right: 25
-maybe_expr_comma_list (77)
-    on left: 64 65, on right: 7 62 63
-expr_comma_list (78)
-    on left: 66 67, on right: 65 67
-maybe_expr (79)
-    on left: 68 69, on right: 8 13 18
+maybe_decls (54)
+    on left: 2 3, on right: 1 3
+decl (55)
+    on left: 4 5 6, on right: 3
+type (56)
+    on left: 7 8 9 10 11, on right: 4 5 6 10 12 16 17
+return_type (57)
+    on left: 12 13, on right: 11
+maybe_param_list (58)
+    on left: 14 15, on right: 11
+param_list (59)
+    on left: 16 17, on right: 15 17
+stmt (60)
+    on left: 18 19 20, on right: 25 26 28 34
+non_right_recursive_stmt (61)
+    on left: 21 22 23 24, on right: 18 29
+if_stmt (62)
+    on left: 25 26, on right: 19
+non_dangling_if (63)
+    on left: 27, on right: 31
+for_stmt (64)
+    on left: 28, on right: 20
+non_dangling_stmt (65)
+    on left: 29 30 31, on right: 25 27 32
+non_dangling_for (66)
+    on left: 32, on right: 30
+maybe_stmts (67)
+    on left: 33 34, on right: 6 22 34
+expr (68)
+    on left: 35, on right: 5 21 25 26 27 36 68 69 80 81 83
+lvalue (69)
+    on left: 36 37, on right: 72
+expr10 (70)
+    on left: 38 39 40, on right: 35 38
+expr9 (71)
+    on left: 41 42, on right: 38 39 40 41
+expr8 (72)
+    on left: 43 44, on right: 41 42 43
+expr7 (73)
+    on left: 45 46 47 48 49 50 51, on right: 43 44 45 46 47 48 49 50
+expr6 (74)
+    on left: 52 53 54, on right: 45 46 47 48 49 50 51 52 53
+expr5 (75)
+    on left: 55 56 57 58, on right: 52 53 54 55 56 57
+expr4 (76)
+    on left: 59 60, on right: 55 56 57 58 59
+expr3 (77)
+    on left: 61 62 63 64, on right: 59 60 61 62 63
+expr2 (78)
+    on left: 65 66 67, on right: 64 65 66
+expr1 (79)
+    on left: 68 69 70 71, on right: 67
+atom (80)
+    on left: 72 73 74 75, on right: 71
+func_call (81)
+    on left: 76, on right: 70
+arr_lit (82)
+    on left: 77, on right: 39
+maybe_expr_comma_list (83)
+    on left: 78 79, on right: 23 76
+expr_comma_list (84)
+    on left: 80 81, on right: 77 79 81
+maybe_expr (85)
+    on left: 82 83, on right: 24 28 32
 
 
 State 0
 
     0 $accept: . program $end
 
-    FOR       shift, and go to state 1
-    IF        shift, and go to state 2
-    PRINT     shift, and go to state 3
-    RETURN    shift, and go to state 4
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    L_BRC     shift, and go to state 7
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
+    IDENT  shift, and go to state 1
 
-    program                   go to state 15
-    stmt                      go to state 16
-    non_right_recursive_stmt  go to state 17
-    if_stmt                   go to state 18
-    non_dangling_if           go to state 19
-    for_stmt                  go to state 20
-    non_dangling_for          go to state 21
-    expr                      go to state 22
-    lvalue                    go to state 23
-    expr10                    go to state 24
-    expr9                     go to state 25
-    expr8                     go to state 26
-    expr7                     go to state 27
-    expr6                     go to state 28
-    expr5                     go to state 29
-    expr4                     go to state 30
-    expr3                     go to state 31
-    expr2                     go to state 32
-    expr1                     go to state 33
-    atom                      go to state 34
-    func_call                 go to state 35
+    $default  reduce using rule 2 (maybe_decls)
+
+    program      go to state 2
+    maybe_decls  go to state 3
+    decl         go to state 4
 
 
 State 1
 
-   13 for_stmt: FOR . L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
-   18 non_dangling_for: FOR . L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt
+    4 decl: IDENT . COLON type S_COL
+    5     | IDENT . COLON type ASGN expr S_COL
+    6     | IDENT . COLON type ASGN L_BRC maybe_stmts R_BRC
 
-    L_PAR  shift, and go to state 36
+    COLON  shift, and go to state 5
 
 
 State 2
 
-    9 if_stmt: IF . L_PAR expr R_PAR stmt
-   10        | IF . L_PAR expr R_PAR non_dangling_stmt ELSE stmt
-   12 non_dangling_if: IF . L_PAR expr R_PAR non_dangling_stmt ELSE non_dangling_stmt
+    0 $accept: program . $end
 
-    L_PAR  shift, and go to state 37
+    $end  shift, and go to state 6
 
 
 State 3
 
-    7 non_right_recursive_stmt: PRINT . maybe_expr_comma_list S_COL
-
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    $default  reduce using rule 64 (maybe_expr_comma_list)
-
-    expr                   go to state 38
-    lvalue                 go to state 23
-    expr10                 go to state 24
-    expr9                  go to state 25
-    expr8                  go to state 26
-    expr7                  go to state 27
-    expr6                  go to state 28
-    expr5                  go to state 29
-    expr4                  go to state 30
-    expr3                  go to state 31
-    expr2                  go to state 32
-    expr1                  go to state 33
-    atom                   go to state 34
-    func_call              go to state 35
-    maybe_expr_comma_list  go to state 39
-    expr_comma_list        go to state 40
-
-
-State 4
-
-    8 non_right_recursive_stmt: RETURN . maybe_expr S_COL
-
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    $default  reduce using rule 68 (maybe_expr)
-
-    expr        go to state 41
-    lvalue      go to state 23
-    expr10      go to state 24
-    expr9       go to state 25
-    expr8       go to state 26
-    expr7       go to state 27
-    expr6       go to state 28
-    expr5       go to state 29
-    expr4       go to state 30
-    expr3       go to state 31
-    expr2       go to state 32
-    expr1       go to state 33
-    atom        go to state 34
-    func_call   go to state 35
-    maybe_expr  go to state 42
-
-
-State 5
-
-   54 expr1: L_PAR . expr R_PAR
-
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    expr       go to state 43
-    lvalue     go to state 23
-    expr10     go to state 24
-    expr9      go to state 25
-    expr8      go to state 26
-    expr7      go to state 27
-    expr6      go to state 28
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
-
-
-State 6
-
-   55 expr1: L_BRK . expr R_BRK
-
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    expr       go to state 44
-    lvalue     go to state 23
-    expr10     go to state 24
-    expr9      go to state 25
-    expr8      go to state 26
-    expr7      go to state 27
-    expr6      go to state 28
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
-
-
-State 7
-
-    6 non_right_recursive_stmt: L_BRC . maybe_stmts R_BRC
-
-    FOR       shift, and go to state 1
-    IF        shift, and go to state 2
-    PRINT     shift, and go to state 3
-    RETURN    shift, and go to state 4
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    L_BRC     shift, and go to state 7
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    $default  reduce using rule 19 (maybe_stmts)
-
-    stmt                      go to state 45
-    non_right_recursive_stmt  go to state 17
-    if_stmt                   go to state 18
-    non_dangling_if           go to state 19
-    for_stmt                  go to state 20
-    non_dangling_for          go to state 21
-    maybe_stmts               go to state 46
-    expr                      go to state 22
-    lvalue                    go to state 23
-    expr10                    go to state 24
-    expr9                     go to state 25
-    expr8                     go to state 26
-    expr7                     go to state 27
-    expr6                     go to state 28
-    expr5                     go to state 29
-    expr4                     go to state 30
-    expr3                     go to state 31
-    expr2                     go to state 32
-    expr1                     go to state 33
-    atom                      go to state 34
-    func_call                 go to state 35
-
-
-State 8
-
-   48 expr3: MINUS . expr3
-
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    lvalue     go to state 23
-    expr3      go to state 47
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
-
-
-State 9
-
-   49 expr3: NOT . expr3
-
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    lvalue     go to state 23
-    expr3      go to state 48
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
-
-
-State 10
-
-   47 expr3: PLUS . expr3
-
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    lvalue     go to state 23
-    expr3      go to state 49
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
-
-
-State 11
-
-   22 lvalue: IDENT . L_BRK expr R_BRK
-   23       | IDENT .
-   62 func_call: IDENT . L_PAR maybe_expr_comma_list R_PAR
-
-    L_PAR  shift, and go to state 50
-    L_BRK  shift, and go to state 51
-
-    $default  reduce using rule 23 (lvalue)
-
-
-State 12
-
-   59 atom: STR_LIT .
-
-    $default  reduce using rule 59 (atom)
-
-
-State 13
-
-   60 atom: INT_LIT .
-
-    $default  reduce using rule 60 (atom)
-
-
-State 14
-
-   61 atom: CHAR_LIT .
-
-    $default  reduce using rule 61 (atom)
-
-
-State 15
-
-    0 $accept: program . $end
-
-    $end  shift, and go to state 52
-
-
-State 16
-
-    1 program: stmt .
+    1 program: maybe_decls .
 
     $default  reduce using rule 1 (program)
 
 
-State 17
+State 4
 
-    2 stmt: non_right_recursive_stmt .
+    3 maybe_decls: decl . maybe_decls
 
-    $default  reduce using rule 2 (stmt)
+    IDENT  shift, and go to state 1
 
+    $default  reduce using rule 2 (maybe_decls)
 
-State 18
+    maybe_decls  go to state 7
+    decl         go to state 4
 
-    3 stmt: if_stmt .
 
-    $default  reduce using rule 3 (stmt)
+State 5
 
+    4 decl: IDENT COLON . type S_COL
+    5     | IDENT COLON . type ASGN expr S_COL
+    6     | IDENT COLON . type ASGN L_BRC maybe_stmts R_BRC
 
-State 19
+    ARRAY     shift, and go to state 8
+    CHAR      shift, and go to state 9
+    FUNCTION  shift, and go to state 10
+    INTEGER   shift, and go to state 11
+    STRING    shift, and go to state 12
 
-   11 if_stmt: non_dangling_if .
+    type  go to state 13
 
-    $default  reduce using rule 11 (if_stmt)
 
-
-State 20
-
-    4 stmt: for_stmt .
-
-    $default  reduce using rule 4 (stmt)
-
-
-State 21
-
-   14 for_stmt: non_dangling_for .
-
-    $default  reduce using rule 14 (for_stmt)
-
-
-State 22
-
-    5 non_right_recursive_stmt: expr . S_COL
-
-    S_COL  shift, and go to state 53
-
-
-State 23
-
-   58 atom: lvalue .
-
-    $default  reduce using rule 58 (atom)
-
-
-State 24
-
-   21 expr: expr10 .
-
-    $default  reduce using rule 21 (expr)
-
-
-State 25
-
-   24 expr10: expr9 . ASGN expr10
-   25       | expr9 . ASGN arr_lit
-   26       | expr9 .
-   27 expr9: expr9 . OR expr8
-
-    OR    shift, and go to state 54
-    ASGN  shift, and go to state 55
-
-    $default  reduce using rule 26 (expr10)
-
-
-State 26
-
-   28 expr9: expr8 .
-   29 expr8: expr8 . AND expr7
-
-    AND  shift, and go to state 56
-
-    $default  reduce using rule 28 (expr9)
-
-
-State 27
-
-   30 expr8: expr7 .
-   31 expr7: expr7 . LT expr6
-   32      | expr7 . LT_EQ expr6
-   33      | expr7 . GT expr6
-   34      | expr7 . GT_EQ expr6
-   35      | expr7 . EQ expr6
-   36      | expr7 . NOT_EQ expr6
-
-    LT_EQ   shift, and go to state 57
-    LT      shift, and go to state 58
-    GT_EQ   shift, and go to state 59
-    GT      shift, and go to state 60
-    EQ      shift, and go to state 61
-    NOT_EQ  shift, and go to state 62
-
-    $default  reduce using rule 30 (expr8)
-
-
-State 28
-
-   37 expr7: expr6 .
-   38 expr6: expr6 . PLUS expr5
-   39      | expr6 . MINUS expr5
-
-    MINUS  shift, and go to state 63
-    PLUS   shift, and go to state 64
-
-    $default  reduce using rule 37 (expr7)
-
-
-State 29
-
-   40 expr6: expr5 .
-   41 expr5: expr5 . STAR expr4
-   42      | expr5 . SLASH expr4
-   43      | expr5 . PRCT expr4
-
-    STAR   shift, and go to state 65
-    SLASH  shift, and go to state 66
-    PRCT   shift, and go to state 67
-
-    $default  reduce using rule 40 (expr6)
-
-
-State 30
-
-   44 expr5: expr4 .
-   45 expr4: expr4 . CARET expr3
-
-    CARET  shift, and go to state 68
-
-    $default  reduce using rule 44 (expr5)
-
-
-State 31
-
-   46 expr4: expr3 .
-
-    $default  reduce using rule 46 (expr4)
-
-
-State 32
-
-   50 expr3: expr2 .
-   51 expr2: expr2 . DEC
-   52      | expr2 . INC
-
-    INC  shift, and go to state 69
-    DEC  shift, and go to state 70
-
-    $default  reduce using rule 50 (expr3)
-
-
-State 33
-
-   53 expr2: expr1 .
-
-    $default  reduce using rule 53 (expr2)
-
-
-State 34
-
-   57 expr1: atom .
-
-    $default  reduce using rule 57 (expr1)
-
-
-State 35
-
-   56 expr1: func_call .
-
-    $default  reduce using rule 56 (expr1)
-
-
-State 36
-
-   13 for_stmt: FOR L_PAR . maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
-   18 non_dangling_for: FOR L_PAR . maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt
-
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    $default  reduce using rule 68 (maybe_expr)
-
-    expr        go to state 41
-    lvalue      go to state 23
-    expr10      go to state 24
-    expr9       go to state 25
-    expr8       go to state 26
-    expr7       go to state 27
-    expr6       go to state 28
-    expr5       go to state 29
-    expr4       go to state 30
-    expr3       go to state 31
-    expr2       go to state 32
-    expr1       go to state 33
-    atom        go to state 34
-    func_call   go to state 35
-    maybe_expr  go to state 71
-
-
-State 37
-
-    9 if_stmt: IF L_PAR . expr R_PAR stmt
-   10        | IF L_PAR . expr R_PAR non_dangling_stmt ELSE stmt
-   12 non_dangling_if: IF L_PAR . expr R_PAR non_dangling_stmt ELSE non_dangling_stmt
-
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    expr       go to state 72
-    lvalue     go to state 23
-    expr10     go to state 24
-    expr9      go to state 25
-    expr8      go to state 26
-    expr7      go to state 27
-    expr6      go to state 28
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
-
-
-State 38
-
-   66 expr_comma_list: expr .
-   67                | expr . COMMA expr_comma_list
-
-    COMMA  shift, and go to state 73
-
-    $default  reduce using rule 66 (expr_comma_list)
-
-
-State 39
-
-    7 non_right_recursive_stmt: PRINT maybe_expr_comma_list . S_COL
-
-    S_COL  shift, and go to state 74
-
-
-State 40
-
-   65 maybe_expr_comma_list: expr_comma_list .
-
-    $default  reduce using rule 65 (maybe_expr_comma_list)
-
-
-State 41
-
-   69 maybe_expr: expr .
-
-    $default  reduce using rule 69 (maybe_expr)
-
-
-State 42
-
-    8 non_right_recursive_stmt: RETURN maybe_expr . S_COL
-
-    S_COL  shift, and go to state 75
-
-
-State 43
-
-   54 expr1: L_PAR expr . R_PAR
-
-    R_PAR  shift, and go to state 76
-
-
-State 44
-
-   55 expr1: L_BRK expr . R_BRK
-
-    R_BRK  shift, and go to state 77
-
-
-State 45
-
-   20 maybe_stmts: stmt . maybe_stmts
-
-    FOR       shift, and go to state 1
-    IF        shift, and go to state 2
-    PRINT     shift, and go to state 3
-    RETURN    shift, and go to state 4
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    L_BRC     shift, and go to state 7
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    $default  reduce using rule 19 (maybe_stmts)
-
-    stmt                      go to state 45
-    non_right_recursive_stmt  go to state 17
-    if_stmt                   go to state 18
-    non_dangling_if           go to state 19
-    for_stmt                  go to state 20
-    non_dangling_for          go to state 21
-    maybe_stmts               go to state 78
-    expr                      go to state 22
-    lvalue                    go to state 23
-    expr10                    go to state 24
-    expr9                     go to state 25
-    expr8                     go to state 26
-    expr7                     go to state 27
-    expr6                     go to state 28
-    expr5                     go to state 29
-    expr4                     go to state 30
-    expr3                     go to state 31
-    expr2                     go to state 32
-    expr1                     go to state 33
-    atom                      go to state 34
-    func_call                 go to state 35
-
-
-State 46
-
-    6 non_right_recursive_stmt: L_BRC maybe_stmts . R_BRC
-
-    R_BRC  shift, and go to state 79
-
-
-State 47
-
-   48 expr3: MINUS expr3 .
-
-    $default  reduce using rule 48 (expr3)
-
-
-State 48
-
-   49 expr3: NOT expr3 .
-
-    $default  reduce using rule 49 (expr3)
-
-
-State 49
-
-   47 expr3: PLUS expr3 .
-
-    $default  reduce using rule 47 (expr3)
-
-
-State 50
-
-   62 func_call: IDENT L_PAR . maybe_expr_comma_list R_PAR
-
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    $default  reduce using rule 64 (maybe_expr_comma_list)
-
-    expr                   go to state 38
-    lvalue                 go to state 23
-    expr10                 go to state 24
-    expr9                  go to state 25
-    expr8                  go to state 26
-    expr7                  go to state 27
-    expr6                  go to state 28
-    expr5                  go to state 29
-    expr4                  go to state 30
-    expr3                  go to state 31
-    expr2                  go to state 32
-    expr1                  go to state 33
-    atom                   go to state 34
-    func_call              go to state 35
-    maybe_expr_comma_list  go to state 80
-    expr_comma_list        go to state 40
-
-
-State 51
-
-   22 lvalue: IDENT L_BRK . expr R_BRK
-
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    expr       go to state 81
-    lvalue     go to state 23
-    expr10     go to state 24
-    expr9      go to state 25
-    expr8      go to state 26
-    expr7      go to state 27
-    expr6      go to state 28
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
-
-
-State 52
+State 6
 
     0 $accept: program $end .
 
     $default  accept
 
 
+State 7
+
+    3 maybe_decls: decl maybe_decls .
+
+    $default  reduce using rule 3 (maybe_decls)
+
+
+State 8
+
+   10 type: ARRAY . L_BRK INT_LIT R_BRK type
+
+    L_BRK  shift, and go to state 14
+
+
+State 9
+
+    9 type: CHAR .
+
+    $default  reduce using rule 9 (type)
+
+
+State 10
+
+   11 type: FUNCTION . return_type L_PAR maybe_param_list R_PAR
+
+    ARRAY     shift, and go to state 8
+    CHAR      shift, and go to state 9
+    FUNCTION  shift, and go to state 10
+    INTEGER   shift, and go to state 11
+    STRING    shift, and go to state 12
+    VOID      shift, and go to state 15
+
+    type         go to state 16
+    return_type  go to state 17
+
+
+State 11
+
+    7 type: INTEGER .
+
+    $default  reduce using rule 7 (type)
+
+
+State 12
+
+    8 type: STRING .
+
+    $default  reduce using rule 8 (type)
+
+
+State 13
+
+    4 decl: IDENT COLON type . S_COL
+    5     | IDENT COLON type . ASGN expr S_COL
+    6     | IDENT COLON type . ASGN L_BRC maybe_stmts R_BRC
+
+    ASGN   shift, and go to state 18
+    S_COL  shift, and go to state 19
+
+
+State 14
+
+   10 type: ARRAY L_BRK . INT_LIT R_BRK type
+
+    INT_LIT  shift, and go to state 20
+
+
+State 15
+
+   13 return_type: VOID .
+
+    $default  reduce using rule 13 (return_type)
+
+
+State 16
+
+   12 return_type: type .
+
+    $default  reduce using rule 12 (return_type)
+
+
+State 17
+
+   11 type: FUNCTION return_type . L_PAR maybe_param_list R_PAR
+
+    L_PAR  shift, and go to state 21
+
+
+State 18
+
+    5 decl: IDENT COLON type ASGN . expr S_COL
+    6     | IDENT COLON type ASGN . L_BRC maybe_stmts R_BRC
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    L_BRC     shift, and go to state 24
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    expr       go to state 32
+    lvalue     go to state 33
+    expr10     go to state 34
+    expr9      go to state 35
+    expr8      go to state 36
+    expr7      go to state 37
+    expr6      go to state 38
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
+
+
+State 19
+
+    4 decl: IDENT COLON type S_COL .
+
+    $default  reduce using rule 4 (decl)
+
+
+State 20
+
+   10 type: ARRAY L_BRK INT_LIT . R_BRK type
+
+    R_BRK  shift, and go to state 46
+
+
+State 21
+
+   11 type: FUNCTION return_type L_PAR . maybe_param_list R_PAR
+
+    IDENT  shift, and go to state 47
+
+    $default  reduce using rule 14 (maybe_param_list)
+
+    maybe_param_list  go to state 48
+    param_list        go to state 49
+
+
+State 22
+
+   68 expr1: L_PAR . expr R_PAR
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    expr       go to state 50
+    lvalue     go to state 33
+    expr10     go to state 34
+    expr9      go to state 35
+    expr8      go to state 36
+    expr7      go to state 37
+    expr6      go to state 38
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
+
+
+State 23
+
+   69 expr1: L_BRK . expr R_BRK
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    expr       go to state 51
+    lvalue     go to state 33
+    expr10     go to state 34
+    expr9      go to state 35
+    expr8      go to state 36
+    expr7      go to state 37
+    expr6      go to state 38
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
+
+
+State 24
+
+    6 decl: IDENT COLON type ASGN L_BRC . maybe_stmts R_BRC
+
+    FOR       shift, and go to state 52
+    IF        shift, and go to state 53
+    PRINT     shift, and go to state 54
+    RETURN    shift, and go to state 55
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    L_BRC     shift, and go to state 56
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    $default  reduce using rule 33 (maybe_stmts)
+
+    stmt                      go to state 57
+    non_right_recursive_stmt  go to state 58
+    if_stmt                   go to state 59
+    for_stmt                  go to state 60
+    maybe_stmts               go to state 61
+    expr                      go to state 62
+    lvalue                    go to state 33
+    expr10                    go to state 34
+    expr9                     go to state 35
+    expr8                     go to state 36
+    expr7                     go to state 37
+    expr6                     go to state 38
+    expr5                     go to state 39
+    expr4                     go to state 40
+    expr3                     go to state 41
+    expr2                     go to state 42
+    expr1                     go to state 43
+    atom                      go to state 44
+    func_call                 go to state 45
+
+
+State 25
+
+   62 expr3: MINUS . expr3
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr3      go to state 63
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
+
+
+State 26
+
+   63 expr3: NOT . expr3
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr3      go to state 64
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
+
+
+State 27
+
+   61 expr3: PLUS . expr3
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr3      go to state 65
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
+
+
+State 28
+
+   36 lvalue: IDENT . L_BRK expr R_BRK
+   37       | IDENT .
+   76 func_call: IDENT . L_PAR maybe_expr_comma_list R_PAR
+
+    L_PAR  shift, and go to state 66
+    L_BRK  shift, and go to state 67
+
+    $default  reduce using rule 37 (lvalue)
+
+
+State 29
+
+   73 atom: STR_LIT .
+
+    $default  reduce using rule 73 (atom)
+
+
+State 30
+
+   74 atom: INT_LIT .
+
+    $default  reduce using rule 74 (atom)
+
+
+State 31
+
+   75 atom: CHAR_LIT .
+
+    $default  reduce using rule 75 (atom)
+
+
+State 32
+
+    5 decl: IDENT COLON type ASGN expr . S_COL
+
+    S_COL  shift, and go to state 68
+
+
+State 33
+
+   72 atom: lvalue .
+
+    $default  reduce using rule 72 (atom)
+
+
+State 34
+
+   35 expr: expr10 .
+
+    $default  reduce using rule 35 (expr)
+
+
+State 35
+
+   38 expr10: expr9 . ASGN expr10
+   39       | expr9 . ASGN arr_lit
+   40       | expr9 .
+   41 expr9: expr9 . OR expr8
+
+    OR    shift, and go to state 69
+    ASGN  shift, and go to state 70
+
+    $default  reduce using rule 40 (expr10)
+
+
+State 36
+
+   42 expr9: expr8 .
+   43 expr8: expr8 . AND expr7
+
+    AND  shift, and go to state 71
+
+    $default  reduce using rule 42 (expr9)
+
+
+State 37
+
+   44 expr8: expr7 .
+   45 expr7: expr7 . LT expr6
+   46      | expr7 . LT_EQ expr6
+   47      | expr7 . GT expr6
+   48      | expr7 . GT_EQ expr6
+   49      | expr7 . EQ expr6
+   50      | expr7 . NOT_EQ expr6
+
+    LT_EQ   shift, and go to state 72
+    LT      shift, and go to state 73
+    GT_EQ   shift, and go to state 74
+    GT      shift, and go to state 75
+    EQ      shift, and go to state 76
+    NOT_EQ  shift, and go to state 77
+
+    $default  reduce using rule 44 (expr8)
+
+
+State 38
+
+   51 expr7: expr6 .
+   52 expr6: expr6 . PLUS expr5
+   53      | expr6 . MINUS expr5
+
+    MINUS  shift, and go to state 78
+    PLUS   shift, and go to state 79
+
+    $default  reduce using rule 51 (expr7)
+
+
+State 39
+
+   54 expr6: expr5 .
+   55 expr5: expr5 . STAR expr4
+   56      | expr5 . SLASH expr4
+   57      | expr5 . PRCT expr4
+
+    STAR   shift, and go to state 80
+    SLASH  shift, and go to state 81
+    PRCT   shift, and go to state 82
+
+    $default  reduce using rule 54 (expr6)
+
+
+State 40
+
+   58 expr5: expr4 .
+   59 expr4: expr4 . CARET expr3
+
+    CARET  shift, and go to state 83
+
+    $default  reduce using rule 58 (expr5)
+
+
+State 41
+
+   60 expr4: expr3 .
+
+    $default  reduce using rule 60 (expr4)
+
+
+State 42
+
+   64 expr3: expr2 .
+   65 expr2: expr2 . DEC
+   66      | expr2 . INC
+
+    INC  shift, and go to state 84
+    DEC  shift, and go to state 85
+
+    $default  reduce using rule 64 (expr3)
+
+
+State 43
+
+   67 expr2: expr1 .
+
+    $default  reduce using rule 67 (expr2)
+
+
+State 44
+
+   71 expr1: atom .
+
+    $default  reduce using rule 71 (expr1)
+
+
+State 45
+
+   70 expr1: func_call .
+
+    $default  reduce using rule 70 (expr1)
+
+
+State 46
+
+   10 type: ARRAY L_BRK INT_LIT R_BRK . type
+
+    ARRAY     shift, and go to state 8
+    CHAR      shift, and go to state 9
+    FUNCTION  shift, and go to state 10
+    INTEGER   shift, and go to state 11
+    STRING    shift, and go to state 12
+
+    type  go to state 86
+
+
+State 47
+
+   16 param_list: IDENT . COLON type
+   17           | IDENT . COLON type COMMA param_list
+
+    COLON  shift, and go to state 87
+
+
+State 48
+
+   11 type: FUNCTION return_type L_PAR maybe_param_list . R_PAR
+
+    R_PAR  shift, and go to state 88
+
+
+State 49
+
+   15 maybe_param_list: param_list .
+
+    $default  reduce using rule 15 (maybe_param_list)
+
+
+State 50
+
+   68 expr1: L_PAR expr . R_PAR
+
+    R_PAR  shift, and go to state 89
+
+
+State 51
+
+   69 expr1: L_BRK expr . R_BRK
+
+    R_BRK  shift, and go to state 90
+
+
+State 52
+
+   28 for_stmt: FOR . L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
+
+    L_PAR  shift, and go to state 91
+
+
 State 53
 
-    5 non_right_recursive_stmt: expr S_COL .
+   25 if_stmt: IF . L_PAR expr R_PAR non_dangling_stmt ELSE stmt
+   26        | IF . L_PAR expr R_PAR stmt
 
-    $default  reduce using rule 5 (non_right_recursive_stmt)
+    L_PAR  shift, and go to state 92
 
 
 State 54
 
-   27 expr9: expr9 OR . expr8
+   23 non_right_recursive_stmt: PRINT . maybe_expr_comma_list S_COL
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
 
-    lvalue     go to state 23
-    expr8      go to state 82
-    expr7      go to state 27
-    expr6      go to state 28
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    $default  reduce using rule 78 (maybe_expr_comma_list)
+
+    expr                   go to state 93
+    lvalue                 go to state 33
+    expr10                 go to state 34
+    expr9                  go to state 35
+    expr8                  go to state 36
+    expr7                  go to state 37
+    expr6                  go to state 38
+    expr5                  go to state 39
+    expr4                  go to state 40
+    expr3                  go to state 41
+    expr2                  go to state 42
+    expr1                  go to state 43
+    atom                   go to state 44
+    func_call              go to state 45
+    maybe_expr_comma_list  go to state 94
+    expr_comma_list        go to state 95
 
 
 State 55
 
-   24 expr10: expr9 ASGN . expr10
-   25       | expr9 ASGN . arr_lit
+   24 non_right_recursive_stmt: RETURN . maybe_expr S_COL
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 83
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
 
-    lvalue     go to state 23
-    expr10     go to state 84
-    expr9      go to state 25
-    expr8      go to state 26
-    expr7      go to state 27
-    expr6      go to state 28
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
-    arr_lit    go to state 85
+    $default  reduce using rule 82 (maybe_expr)
+
+    expr        go to state 96
+    lvalue      go to state 33
+    expr10      go to state 34
+    expr9       go to state 35
+    expr8       go to state 36
+    expr7       go to state 37
+    expr6       go to state 38
+    expr5       go to state 39
+    expr4       go to state 40
+    expr3       go to state 41
+    expr2       go to state 42
+    expr1       go to state 43
+    atom        go to state 44
+    func_call   go to state 45
+    maybe_expr  go to state 97
 
 
 State 56
 
-   29 expr8: expr8 AND . expr7
+   22 non_right_recursive_stmt: L_BRC . maybe_stmts R_BRC
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
+    FOR       shift, and go to state 52
+    IF        shift, and go to state 53
+    PRINT     shift, and go to state 54
+    RETURN    shift, and go to state 55
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    L_BRC     shift, and go to state 56
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
 
-    lvalue     go to state 23
-    expr7      go to state 86
-    expr6      go to state 28
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    $default  reduce using rule 33 (maybe_stmts)
+
+    stmt                      go to state 57
+    non_right_recursive_stmt  go to state 58
+    if_stmt                   go to state 59
+    for_stmt                  go to state 60
+    maybe_stmts               go to state 98
+    expr                      go to state 62
+    lvalue                    go to state 33
+    expr10                    go to state 34
+    expr9                     go to state 35
+    expr8                     go to state 36
+    expr7                     go to state 37
+    expr6                     go to state 38
+    expr5                     go to state 39
+    expr4                     go to state 40
+    expr3                     go to state 41
+    expr2                     go to state 42
+    expr1                     go to state 43
+    atom                      go to state 44
+    func_call                 go to state 45
 
 
 State 57
 
-   32 expr7: expr7 LT_EQ . expr6
+   34 maybe_stmts: stmt . maybe_stmts
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
+    FOR       shift, and go to state 52
+    IF        shift, and go to state 53
+    PRINT     shift, and go to state 54
+    RETURN    shift, and go to state 55
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    L_BRC     shift, and go to state 56
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
 
-    lvalue     go to state 23
-    expr6      go to state 87
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    $default  reduce using rule 33 (maybe_stmts)
+
+    stmt                      go to state 57
+    non_right_recursive_stmt  go to state 58
+    if_stmt                   go to state 59
+    for_stmt                  go to state 60
+    maybe_stmts               go to state 99
+    expr                      go to state 62
+    lvalue                    go to state 33
+    expr10                    go to state 34
+    expr9                     go to state 35
+    expr8                     go to state 36
+    expr7                     go to state 37
+    expr6                     go to state 38
+    expr5                     go to state 39
+    expr4                     go to state 40
+    expr3                     go to state 41
+    expr2                     go to state 42
+    expr1                     go to state 43
+    atom                      go to state 44
+    func_call                 go to state 45
 
 
 State 58
 
-   31 expr7: expr7 LT . expr6
+   18 stmt: non_right_recursive_stmt .
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    lvalue     go to state 23
-    expr6      go to state 88
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    $default  reduce using rule 18 (stmt)
 
 
 State 59
 
-   34 expr7: expr7 GT_EQ . expr6
+   19 stmt: if_stmt .
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    lvalue     go to state 23
-    expr6      go to state 89
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    $default  reduce using rule 19 (stmt)
 
 
 State 60
 
-   33 expr7: expr7 GT . expr6
+   20 stmt: for_stmt .
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    lvalue     go to state 23
-    expr6      go to state 90
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    $default  reduce using rule 20 (stmt)
 
 
 State 61
 
-   35 expr7: expr7 EQ . expr6
+    6 decl: IDENT COLON type ASGN L_BRC maybe_stmts . R_BRC
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    lvalue     go to state 23
-    expr6      go to state 91
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    R_BRC  shift, and go to state 100
 
 
 State 62
 
-   36 expr7: expr7 NOT_EQ . expr6
+   21 non_right_recursive_stmt: expr . S_COL
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    lvalue     go to state 23
-    expr6      go to state 92
-    expr5      go to state 29
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    S_COL  shift, and go to state 101
 
 
 State 63
 
-   39 expr6: expr6 MINUS . expr5
+   62 expr3: MINUS expr3 .
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    lvalue     go to state 23
-    expr5      go to state 93
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    $default  reduce using rule 62 (expr3)
 
 
 State 64
 
-   38 expr6: expr6 PLUS . expr5
+   63 expr3: NOT expr3 .
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    lvalue     go to state 23
-    expr5      go to state 94
-    expr4      go to state 30
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    $default  reduce using rule 63 (expr3)
 
 
 State 65
 
-   41 expr5: expr5 STAR . expr4
+   61 expr3: PLUS expr3 .
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    lvalue     go to state 23
-    expr4      go to state 95
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    $default  reduce using rule 61 (expr3)
 
 
 State 66
 
-   42 expr5: expr5 SLASH . expr4
+   76 func_call: IDENT L_PAR . maybe_expr_comma_list R_PAR
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
 
-    lvalue     go to state 23
-    expr4      go to state 96
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    $default  reduce using rule 78 (maybe_expr_comma_list)
+
+    expr                   go to state 93
+    lvalue                 go to state 33
+    expr10                 go to state 34
+    expr9                  go to state 35
+    expr8                  go to state 36
+    expr7                  go to state 37
+    expr6                  go to state 38
+    expr5                  go to state 39
+    expr4                  go to state 40
+    expr3                  go to state 41
+    expr2                  go to state 42
+    expr1                  go to state 43
+    atom                   go to state 44
+    func_call              go to state 45
+    maybe_expr_comma_list  go to state 102
+    expr_comma_list        go to state 95
 
 
 State 67
 
-   43 expr5: expr5 PRCT . expr4
+   36 lvalue: IDENT L_BRK . expr R_BRK
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
 
-    lvalue     go to state 23
-    expr4      go to state 97
-    expr3      go to state 31
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    expr       go to state 103
+    lvalue     go to state 33
+    expr10     go to state 34
+    expr9      go to state 35
+    expr8      go to state 36
+    expr7      go to state 37
+    expr6      go to state 38
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 68
 
-   45 expr4: expr4 CARET . expr3
+    5 decl: IDENT COLON type ASGN expr S_COL .
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    lvalue     go to state 23
-    expr3      go to state 98
-    expr2      go to state 32
-    expr1      go to state 33
-    atom       go to state 34
-    func_call  go to state 35
+    $default  reduce using rule 5 (decl)
 
 
 State 69
 
-   52 expr2: expr2 INC .
+   41 expr9: expr9 OR . expr8
 
-    $default  reduce using rule 52 (expr2)
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr8      go to state 104
+    expr7      go to state 37
+    expr6      go to state 38
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 70
 
-   51 expr2: expr2 DEC .
+   38 expr10: expr9 ASGN . expr10
+   39       | expr9 ASGN . arr_lit
 
-    $default  reduce using rule 51 (expr2)
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 105
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr10     go to state 106
+    expr9      go to state 35
+    expr8      go to state 36
+    expr7      go to state 37
+    expr6      go to state 38
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
+    arr_lit    go to state 107
 
 
 State 71
 
-   13 for_stmt: FOR L_PAR maybe_expr . S_COL maybe_expr S_COL maybe_expr R_PAR stmt
-   18 non_dangling_for: FOR L_PAR maybe_expr . S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt
+   43 expr8: expr8 AND . expr7
 
-    S_COL  shift, and go to state 99
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr7      go to state 108
+    expr6      go to state 38
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 72
 
-    9 if_stmt: IF L_PAR expr . R_PAR stmt
-   10        | IF L_PAR expr . R_PAR non_dangling_stmt ELSE stmt
-   12 non_dangling_if: IF L_PAR expr . R_PAR non_dangling_stmt ELSE non_dangling_stmt
+   46 expr7: expr7 LT_EQ . expr6
 
-    R_PAR  shift, and go to state 100
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr6      go to state 109
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 73
 
-   67 expr_comma_list: expr COMMA . expr_comma_list
+   45 expr7: expr7 LT . expr6
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
 
-    expr             go to state 38
-    lvalue           go to state 23
-    expr10           go to state 24
-    expr9            go to state 25
-    expr8            go to state 26
-    expr7            go to state 27
-    expr6            go to state 28
-    expr5            go to state 29
-    expr4            go to state 30
-    expr3            go to state 31
-    expr2            go to state 32
-    expr1            go to state 33
-    atom             go to state 34
-    func_call        go to state 35
-    expr_comma_list  go to state 101
+    lvalue     go to state 33
+    expr6      go to state 110
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 74
 
-    7 non_right_recursive_stmt: PRINT maybe_expr_comma_list S_COL .
+   48 expr7: expr7 GT_EQ . expr6
 
-    $default  reduce using rule 7 (non_right_recursive_stmt)
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr6      go to state 111
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 75
 
-    8 non_right_recursive_stmt: RETURN maybe_expr S_COL .
+   47 expr7: expr7 GT . expr6
 
-    $default  reduce using rule 8 (non_right_recursive_stmt)
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr6      go to state 112
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 76
 
-   54 expr1: L_PAR expr R_PAR .
+   49 expr7: expr7 EQ . expr6
 
-    $default  reduce using rule 54 (expr1)
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr6      go to state 113
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 77
 
-   55 expr1: L_BRK expr R_BRK .
+   50 expr7: expr7 NOT_EQ . expr6
 
-    $default  reduce using rule 55 (expr1)
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr6      go to state 114
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 78
 
-   20 maybe_stmts: stmt maybe_stmts .
+   53 expr6: expr6 MINUS . expr5
 
-    $default  reduce using rule 20 (maybe_stmts)
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr5      go to state 115
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 79
 
-    6 non_right_recursive_stmt: L_BRC maybe_stmts R_BRC .
+   52 expr6: expr6 PLUS . expr5
 
-    $default  reduce using rule 6 (non_right_recursive_stmt)
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr5      go to state 116
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 80
 
-   62 func_call: IDENT L_PAR maybe_expr_comma_list . R_PAR
+   55 expr5: expr5 STAR . expr4
 
-    R_PAR  shift, and go to state 102
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr4      go to state 117
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 81
 
-   22 lvalue: IDENT L_BRK expr . R_BRK
+   56 expr5: expr5 SLASH . expr4
 
-    R_BRK  shift, and go to state 103
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    lvalue     go to state 33
+    expr4      go to state 118
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 82
 
-   27 expr9: expr9 OR expr8 .
-   29 expr8: expr8 . AND expr7
+   57 expr5: expr5 PRCT . expr4
 
-    AND  shift, and go to state 56
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
 
-    $default  reduce using rule 27 (expr9)
+    lvalue     go to state 33
+    expr4      go to state 119
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 83
 
-   22 lvalue: IDENT . L_BRK expr R_BRK
-   23       | IDENT .
-   62 func_call: IDENT . L_PAR maybe_expr_comma_list R_PAR
-   63 arr_lit: IDENT . L_BRC maybe_expr_comma_list R_BRC
+   59 expr4: expr4 CARET . expr3
 
-    L_PAR  shift, and go to state 50
-    L_BRK  shift, and go to state 51
-    L_BRC  shift, and go to state 104
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
 
-    $default  reduce using rule 23 (lvalue)
+    lvalue     go to state 33
+    expr3      go to state 120
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 84
 
-   24 expr10: expr9 ASGN expr10 .
+   66 expr2: expr2 INC .
 
-    $default  reduce using rule 24 (expr10)
+    $default  reduce using rule 66 (expr2)
 
 
 State 85
 
-   25 expr10: expr9 ASGN arr_lit .
+   65 expr2: expr2 DEC .
 
-    $default  reduce using rule 25 (expr10)
+    $default  reduce using rule 65 (expr2)
 
 
 State 86
 
-   29 expr8: expr8 AND expr7 .
-   31 expr7: expr7 . LT expr6
-   32      | expr7 . LT_EQ expr6
-   33      | expr7 . GT expr6
-   34      | expr7 . GT_EQ expr6
-   35      | expr7 . EQ expr6
-   36      | expr7 . NOT_EQ expr6
+   10 type: ARRAY L_BRK INT_LIT R_BRK type .
 
-    LT_EQ   shift, and go to state 57
-    LT      shift, and go to state 58
-    GT_EQ   shift, and go to state 59
-    GT      shift, and go to state 60
-    EQ      shift, and go to state 61
-    NOT_EQ  shift, and go to state 62
-
-    $default  reduce using rule 29 (expr8)
+    $default  reduce using rule 10 (type)
 
 
 State 87
 
-   32 expr7: expr7 LT_EQ expr6 .
-   38 expr6: expr6 . PLUS expr5
-   39      | expr6 . MINUS expr5
+   16 param_list: IDENT COLON . type
+   17           | IDENT COLON . type COMMA param_list
 
-    MINUS  shift, and go to state 63
-    PLUS   shift, and go to state 64
+    ARRAY     shift, and go to state 8
+    CHAR      shift, and go to state 9
+    FUNCTION  shift, and go to state 10
+    INTEGER   shift, and go to state 11
+    STRING    shift, and go to state 12
 
-    $default  reduce using rule 32 (expr7)
+    type  go to state 121
 
 
 State 88
 
-   31 expr7: expr7 LT expr6 .
-   38 expr6: expr6 . PLUS expr5
-   39      | expr6 . MINUS expr5
+   11 type: FUNCTION return_type L_PAR maybe_param_list R_PAR .
 
-    MINUS  shift, and go to state 63
-    PLUS   shift, and go to state 64
-
-    $default  reduce using rule 31 (expr7)
+    $default  reduce using rule 11 (type)
 
 
 State 89
 
-   34 expr7: expr7 GT_EQ expr6 .
-   38 expr6: expr6 . PLUS expr5
-   39      | expr6 . MINUS expr5
+   68 expr1: L_PAR expr R_PAR .
 
-    MINUS  shift, and go to state 63
-    PLUS   shift, and go to state 64
-
-    $default  reduce using rule 34 (expr7)
+    $default  reduce using rule 68 (expr1)
 
 
 State 90
 
-   33 expr7: expr7 GT expr6 .
-   38 expr6: expr6 . PLUS expr5
-   39      | expr6 . MINUS expr5
+   69 expr1: L_BRK expr R_BRK .
 
-    MINUS  shift, and go to state 63
-    PLUS   shift, and go to state 64
-
-    $default  reduce using rule 33 (expr7)
+    $default  reduce using rule 69 (expr1)
 
 
 State 91
 
-   35 expr7: expr7 EQ expr6 .
-   38 expr6: expr6 . PLUS expr5
-   39      | expr6 . MINUS expr5
+   28 for_stmt: FOR L_PAR . maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
 
-    MINUS  shift, and go to state 63
-    PLUS   shift, and go to state 64
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
 
-    $default  reduce using rule 35 (expr7)
+    $default  reduce using rule 82 (maybe_expr)
+
+    expr        go to state 96
+    lvalue      go to state 33
+    expr10      go to state 34
+    expr9       go to state 35
+    expr8       go to state 36
+    expr7       go to state 37
+    expr6       go to state 38
+    expr5       go to state 39
+    expr4       go to state 40
+    expr3       go to state 41
+    expr2       go to state 42
+    expr1       go to state 43
+    atom        go to state 44
+    func_call   go to state 45
+    maybe_expr  go to state 122
 
 
 State 92
 
-   36 expr7: expr7 NOT_EQ expr6 .
-   38 expr6: expr6 . PLUS expr5
-   39      | expr6 . MINUS expr5
+   25 if_stmt: IF L_PAR . expr R_PAR non_dangling_stmt ELSE stmt
+   26        | IF L_PAR . expr R_PAR stmt
 
-    MINUS  shift, and go to state 63
-    PLUS   shift, and go to state 64
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
 
-    $default  reduce using rule 36 (expr7)
+    expr       go to state 123
+    lvalue     go to state 33
+    expr10     go to state 34
+    expr9      go to state 35
+    expr8      go to state 36
+    expr7      go to state 37
+    expr6      go to state 38
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
 
 
 State 93
 
-   39 expr6: expr6 MINUS expr5 .
-   41 expr5: expr5 . STAR expr4
-   42      | expr5 . SLASH expr4
-   43      | expr5 . PRCT expr4
+   80 expr_comma_list: expr .
+   81                | expr . COMMA expr_comma_list
 
-    STAR   shift, and go to state 65
-    SLASH  shift, and go to state 66
-    PRCT   shift, and go to state 67
+    COMMA  shift, and go to state 124
 
-    $default  reduce using rule 39 (expr6)
+    $default  reduce using rule 80 (expr_comma_list)
 
 
 State 94
 
-   38 expr6: expr6 PLUS expr5 .
-   41 expr5: expr5 . STAR expr4
-   42      | expr5 . SLASH expr4
-   43      | expr5 . PRCT expr4
+   23 non_right_recursive_stmt: PRINT maybe_expr_comma_list . S_COL
 
-    STAR   shift, and go to state 65
-    SLASH  shift, and go to state 66
-    PRCT   shift, and go to state 67
-
-    $default  reduce using rule 38 (expr6)
+    S_COL  shift, and go to state 125
 
 
 State 95
 
-   41 expr5: expr5 STAR expr4 .
-   45 expr4: expr4 . CARET expr3
+   79 maybe_expr_comma_list: expr_comma_list .
 
-    CARET  shift, and go to state 68
-
-    $default  reduce using rule 41 (expr5)
+    $default  reduce using rule 79 (maybe_expr_comma_list)
 
 
 State 96
 
-   42 expr5: expr5 SLASH expr4 .
-   45 expr4: expr4 . CARET expr3
+   83 maybe_expr: expr .
 
-    CARET  shift, and go to state 68
-
-    $default  reduce using rule 42 (expr5)
+    $default  reduce using rule 83 (maybe_expr)
 
 
 State 97
 
-   43 expr5: expr5 PRCT expr4 .
-   45 expr4: expr4 . CARET expr3
+   24 non_right_recursive_stmt: RETURN maybe_expr . S_COL
 
-    CARET  shift, and go to state 68
-
-    $default  reduce using rule 43 (expr5)
+    S_COL  shift, and go to state 126
 
 
 State 98
 
-   45 expr4: expr4 CARET expr3 .
+   22 non_right_recursive_stmt: L_BRC maybe_stmts . R_BRC
 
-    $default  reduce using rule 45 (expr4)
+    R_BRC  shift, and go to state 127
 
 
 State 99
 
-   13 for_stmt: FOR L_PAR maybe_expr S_COL . maybe_expr S_COL maybe_expr R_PAR stmt
-   18 non_dangling_for: FOR L_PAR maybe_expr S_COL . maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt
+   34 maybe_stmts: stmt maybe_stmts .
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    $default  reduce using rule 68 (maybe_expr)
-
-    expr        go to state 41
-    lvalue      go to state 23
-    expr10      go to state 24
-    expr9       go to state 25
-    expr8       go to state 26
-    expr7       go to state 27
-    expr6       go to state 28
-    expr5       go to state 29
-    expr4       go to state 30
-    expr3       go to state 31
-    expr2       go to state 32
-    expr1       go to state 33
-    atom        go to state 34
-    func_call   go to state 35
-    maybe_expr  go to state 105
+    $default  reduce using rule 34 (maybe_stmts)
 
 
 State 100
 
-    9 if_stmt: IF L_PAR expr R_PAR . stmt
-   10        | IF L_PAR expr R_PAR . non_dangling_stmt ELSE stmt
-   12 non_dangling_if: IF L_PAR expr R_PAR . non_dangling_stmt ELSE non_dangling_stmt
+    6 decl: IDENT COLON type ASGN L_BRC maybe_stmts R_BRC .
 
-    FOR       shift, and go to state 1
-    IF        shift, and go to state 2
-    PRINT     shift, and go to state 3
-    RETURN    shift, and go to state 4
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    L_BRC     shift, and go to state 7
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
-
-    stmt                      go to state 106
-    non_right_recursive_stmt  go to state 107
-    if_stmt                   go to state 18
-    non_dangling_if           go to state 108
-    for_stmt                  go to state 20
-    non_dangling_stmt         go to state 109
-    non_dangling_for          go to state 110
-    expr                      go to state 22
-    lvalue                    go to state 23
-    expr10                    go to state 24
-    expr9                     go to state 25
-    expr8                     go to state 26
-    expr7                     go to state 27
-    expr6                     go to state 28
-    expr5                     go to state 29
-    expr4                     go to state 30
-    expr3                     go to state 31
-    expr2                     go to state 32
-    expr1                     go to state 33
-    atom                      go to state 34
-    func_call                 go to state 35
+    $default  reduce using rule 6 (decl)
 
 
 State 101
 
-   67 expr_comma_list: expr COMMA expr_comma_list .
+   21 non_right_recursive_stmt: expr S_COL .
 
-    $default  reduce using rule 67 (expr_comma_list)
+    $default  reduce using rule 21 (non_right_recursive_stmt)
 
 
 State 102
 
-   62 func_call: IDENT L_PAR maybe_expr_comma_list R_PAR .
+   76 func_call: IDENT L_PAR maybe_expr_comma_list . R_PAR
 
-    $default  reduce using rule 62 (func_call)
+    R_PAR  shift, and go to state 128
 
 
 State 103
 
-   22 lvalue: IDENT L_BRK expr R_BRK .
+   36 lvalue: IDENT L_BRK expr . R_BRK
 
-    $default  reduce using rule 22 (lvalue)
+    R_BRK  shift, and go to state 129
 
 
 State 104
 
-   63 arr_lit: IDENT L_BRC . maybe_expr_comma_list R_BRC
+   41 expr9: expr9 OR expr8 .
+   43 expr8: expr8 . AND expr7
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
+    AND  shift, and go to state 71
 
-    $default  reduce using rule 64 (maybe_expr_comma_list)
-
-    expr                   go to state 38
-    lvalue                 go to state 23
-    expr10                 go to state 24
-    expr9                  go to state 25
-    expr8                  go to state 26
-    expr7                  go to state 27
-    expr6                  go to state 28
-    expr5                  go to state 29
-    expr4                  go to state 30
-    expr3                  go to state 31
-    expr2                  go to state 32
-    expr1                  go to state 33
-    atom                   go to state 34
-    func_call              go to state 35
-    maybe_expr_comma_list  go to state 111
-    expr_comma_list        go to state 40
+    $default  reduce using rule 41 (expr9)
 
 
 State 105
 
-   13 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr . S_COL maybe_expr R_PAR stmt
-   18 non_dangling_for: FOR L_PAR maybe_expr S_COL maybe_expr . S_COL maybe_expr R_PAR non_dangling_stmt
+   36 lvalue: IDENT . L_BRK expr R_BRK
+   37       | IDENT .
+   76 func_call: IDENT . L_PAR maybe_expr_comma_list R_PAR
+   77 arr_lit: IDENT . L_BRC expr_comma_list R_BRC
 
-    S_COL  shift, and go to state 112
+    L_PAR  shift, and go to state 66
+    L_BRK  shift, and go to state 67
+    L_BRC  shift, and go to state 130
+
+    $default  reduce using rule 37 (lvalue)
 
 
 State 106
 
-    9 if_stmt: IF L_PAR expr R_PAR stmt .
+   38 expr10: expr9 ASGN expr10 .
 
-    $default  reduce using rule 9 (if_stmt)
+    $default  reduce using rule 38 (expr10)
 
 
 State 107
 
-    2 stmt: non_right_recursive_stmt .
-   15 non_dangling_stmt: non_right_recursive_stmt .
+   39 expr10: expr9 ASGN arr_lit .
 
-    $end      reduce using rule 2 (stmt)
-    $end      [reduce using rule 15 (non_dangling_stmt)]
-    ELSE      reduce using rule 15 (non_dangling_stmt)
-    FOR       reduce using rule 2 (stmt)
-    FOR       [reduce using rule 15 (non_dangling_stmt)]
-    IF        reduce using rule 2 (stmt)
-    IF        [reduce using rule 15 (non_dangling_stmt)]
-    PRINT     reduce using rule 2 (stmt)
-    PRINT     [reduce using rule 15 (non_dangling_stmt)]
-    RETURN    reduce using rule 2 (stmt)
-    RETURN    [reduce using rule 15 (non_dangling_stmt)]
-    L_PAR     reduce using rule 2 (stmt)
-    L_PAR     [reduce using rule 15 (non_dangling_stmt)]
-    L_BRK     reduce using rule 2 (stmt)
-    L_BRK     [reduce using rule 15 (non_dangling_stmt)]
-    L_BRC     reduce using rule 2 (stmt)
-    L_BRC     [reduce using rule 15 (non_dangling_stmt)]
-    R_BRC     reduce using rule 2 (stmt)
-    R_BRC     [reduce using rule 15 (non_dangling_stmt)]
-    MINUS     reduce using rule 2 (stmt)
-    MINUS     [reduce using rule 15 (non_dangling_stmt)]
-    NOT       reduce using rule 2 (stmt)
-    NOT       [reduce using rule 15 (non_dangling_stmt)]
-    PLUS      reduce using rule 2 (stmt)
-    PLUS      [reduce using rule 15 (non_dangling_stmt)]
-    IDENT     reduce using rule 2 (stmt)
-    IDENT     [reduce using rule 15 (non_dangling_stmt)]
-    STR_LIT   reduce using rule 2 (stmt)
-    STR_LIT   [reduce using rule 15 (non_dangling_stmt)]
-    INT_LIT   reduce using rule 2 (stmt)
-    INT_LIT   [reduce using rule 15 (non_dangling_stmt)]
-    CHAR_LIT  reduce using rule 2 (stmt)
-    CHAR_LIT  [reduce using rule 15 (non_dangling_stmt)]
-    $default  reduce using rule 2 (stmt)
+    $default  reduce using rule 39 (expr10)
 
 
 State 108
 
-   11 if_stmt: non_dangling_if .
-   17 non_dangling_stmt: non_dangling_if .
+   43 expr8: expr8 AND expr7 .
+   45 expr7: expr7 . LT expr6
+   46      | expr7 . LT_EQ expr6
+   47      | expr7 . GT expr6
+   48      | expr7 . GT_EQ expr6
+   49      | expr7 . EQ expr6
+   50      | expr7 . NOT_EQ expr6
 
-    $end      reduce using rule 11 (if_stmt)
-    $end      [reduce using rule 17 (non_dangling_stmt)]
-    ELSE      reduce using rule 17 (non_dangling_stmt)
-    FOR       reduce using rule 11 (if_stmt)
-    FOR       [reduce using rule 17 (non_dangling_stmt)]
-    IF        reduce using rule 11 (if_stmt)
-    IF        [reduce using rule 17 (non_dangling_stmt)]
-    PRINT     reduce using rule 11 (if_stmt)
-    PRINT     [reduce using rule 17 (non_dangling_stmt)]
-    RETURN    reduce using rule 11 (if_stmt)
-    RETURN    [reduce using rule 17 (non_dangling_stmt)]
-    L_PAR     reduce using rule 11 (if_stmt)
-    L_PAR     [reduce using rule 17 (non_dangling_stmt)]
-    L_BRK     reduce using rule 11 (if_stmt)
-    L_BRK     [reduce using rule 17 (non_dangling_stmt)]
-    L_BRC     reduce using rule 11 (if_stmt)
-    L_BRC     [reduce using rule 17 (non_dangling_stmt)]
-    R_BRC     reduce using rule 11 (if_stmt)
-    R_BRC     [reduce using rule 17 (non_dangling_stmt)]
-    MINUS     reduce using rule 11 (if_stmt)
-    MINUS     [reduce using rule 17 (non_dangling_stmt)]
-    NOT       reduce using rule 11 (if_stmt)
-    NOT       [reduce using rule 17 (non_dangling_stmt)]
-    PLUS      reduce using rule 11 (if_stmt)
-    PLUS      [reduce using rule 17 (non_dangling_stmt)]
-    IDENT     reduce using rule 11 (if_stmt)
-    IDENT     [reduce using rule 17 (non_dangling_stmt)]
-    STR_LIT   reduce using rule 11 (if_stmt)
-    STR_LIT   [reduce using rule 17 (non_dangling_stmt)]
-    INT_LIT   reduce using rule 11 (if_stmt)
-    INT_LIT   [reduce using rule 17 (non_dangling_stmt)]
-    CHAR_LIT  reduce using rule 11 (if_stmt)
-    CHAR_LIT  [reduce using rule 17 (non_dangling_stmt)]
-    $default  reduce using rule 11 (if_stmt)
+    LT_EQ   shift, and go to state 72
+    LT      shift, and go to state 73
+    GT_EQ   shift, and go to state 74
+    GT      shift, and go to state 75
+    EQ      shift, and go to state 76
+    NOT_EQ  shift, and go to state 77
+
+    $default  reduce using rule 43 (expr8)
 
 
 State 109
 
-   10 if_stmt: IF L_PAR expr R_PAR non_dangling_stmt . ELSE stmt
-   12 non_dangling_if: IF L_PAR expr R_PAR non_dangling_stmt . ELSE non_dangling_stmt
+   46 expr7: expr7 LT_EQ expr6 .
+   52 expr6: expr6 . PLUS expr5
+   53      | expr6 . MINUS expr5
 
-    ELSE  shift, and go to state 113
+    MINUS  shift, and go to state 78
+    PLUS   shift, and go to state 79
+
+    $default  reduce using rule 46 (expr7)
 
 
 State 110
 
-   14 for_stmt: non_dangling_for .
-   16 non_dangling_stmt: non_dangling_for .
+   45 expr7: expr7 LT expr6 .
+   52 expr6: expr6 . PLUS expr5
+   53      | expr6 . MINUS expr5
 
-    $end      reduce using rule 14 (for_stmt)
-    $end      [reduce using rule 16 (non_dangling_stmt)]
-    ELSE      reduce using rule 16 (non_dangling_stmt)
-    FOR       reduce using rule 14 (for_stmt)
-    FOR       [reduce using rule 16 (non_dangling_stmt)]
-    IF        reduce using rule 14 (for_stmt)
-    IF        [reduce using rule 16 (non_dangling_stmt)]
-    PRINT     reduce using rule 14 (for_stmt)
-    PRINT     [reduce using rule 16 (non_dangling_stmt)]
-    RETURN    reduce using rule 14 (for_stmt)
-    RETURN    [reduce using rule 16 (non_dangling_stmt)]
-    L_PAR     reduce using rule 14 (for_stmt)
-    L_PAR     [reduce using rule 16 (non_dangling_stmt)]
-    L_BRK     reduce using rule 14 (for_stmt)
-    L_BRK     [reduce using rule 16 (non_dangling_stmt)]
-    L_BRC     reduce using rule 14 (for_stmt)
-    L_BRC     [reduce using rule 16 (non_dangling_stmt)]
-    R_BRC     reduce using rule 14 (for_stmt)
-    R_BRC     [reduce using rule 16 (non_dangling_stmt)]
-    MINUS     reduce using rule 14 (for_stmt)
-    MINUS     [reduce using rule 16 (non_dangling_stmt)]
-    NOT       reduce using rule 14 (for_stmt)
-    NOT       [reduce using rule 16 (non_dangling_stmt)]
-    PLUS      reduce using rule 14 (for_stmt)
-    PLUS      [reduce using rule 16 (non_dangling_stmt)]
-    IDENT     reduce using rule 14 (for_stmt)
-    IDENT     [reduce using rule 16 (non_dangling_stmt)]
-    STR_LIT   reduce using rule 14 (for_stmt)
-    STR_LIT   [reduce using rule 16 (non_dangling_stmt)]
-    INT_LIT   reduce using rule 14 (for_stmt)
-    INT_LIT   [reduce using rule 16 (non_dangling_stmt)]
-    CHAR_LIT  reduce using rule 14 (for_stmt)
-    CHAR_LIT  [reduce using rule 16 (non_dangling_stmt)]
-    $default  reduce using rule 14 (for_stmt)
+    MINUS  shift, and go to state 78
+    PLUS   shift, and go to state 79
+
+    $default  reduce using rule 45 (expr7)
 
 
 State 111
 
-   63 arr_lit: IDENT L_BRC maybe_expr_comma_list . R_BRC
+   48 expr7: expr7 GT_EQ expr6 .
+   52 expr6: expr6 . PLUS expr5
+   53      | expr6 . MINUS expr5
 
-    R_BRC  shift, and go to state 114
+    MINUS  shift, and go to state 78
+    PLUS   shift, and go to state 79
+
+    $default  reduce using rule 48 (expr7)
 
 
 State 112
 
-   13 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL . maybe_expr R_PAR stmt
-   18 non_dangling_for: FOR L_PAR maybe_expr S_COL maybe_expr S_COL . maybe_expr R_PAR non_dangling_stmt
+   47 expr7: expr7 GT expr6 .
+   52 expr6: expr6 . PLUS expr5
+   53      | expr6 . MINUS expr5
 
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
+    MINUS  shift, and go to state 78
+    PLUS   shift, and go to state 79
 
-    $default  reduce using rule 68 (maybe_expr)
-
-    expr        go to state 41
-    lvalue      go to state 23
-    expr10      go to state 24
-    expr9       go to state 25
-    expr8       go to state 26
-    expr7       go to state 27
-    expr6       go to state 28
-    expr5       go to state 29
-    expr4       go to state 30
-    expr3       go to state 31
-    expr2       go to state 32
-    expr1       go to state 33
-    atom        go to state 34
-    func_call   go to state 35
-    maybe_expr  go to state 115
+    $default  reduce using rule 47 (expr7)
 
 
 State 113
 
-   10 if_stmt: IF L_PAR expr R_PAR non_dangling_stmt ELSE . stmt
-   12 non_dangling_if: IF L_PAR expr R_PAR non_dangling_stmt ELSE . non_dangling_stmt
+   49 expr7: expr7 EQ expr6 .
+   52 expr6: expr6 . PLUS expr5
+   53      | expr6 . MINUS expr5
 
-    FOR       shift, and go to state 1
-    IF        shift, and go to state 2
-    PRINT     shift, and go to state 3
-    RETURN    shift, and go to state 4
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    L_BRC     shift, and go to state 7
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
+    MINUS  shift, and go to state 78
+    PLUS   shift, and go to state 79
 
-    stmt                      go to state 116
-    non_right_recursive_stmt  go to state 107
-    if_stmt                   go to state 18
-    non_dangling_if           go to state 108
-    for_stmt                  go to state 20
-    non_dangling_stmt         go to state 117
-    non_dangling_for          go to state 110
-    expr                      go to state 22
-    lvalue                    go to state 23
-    expr10                    go to state 24
-    expr9                     go to state 25
-    expr8                     go to state 26
-    expr7                     go to state 27
-    expr6                     go to state 28
-    expr5                     go to state 29
-    expr4                     go to state 30
-    expr3                     go to state 31
-    expr2                     go to state 32
-    expr1                     go to state 33
-    atom                      go to state 34
-    func_call                 go to state 35
+    $default  reduce using rule 49 (expr7)
 
 
 State 114
 
-   63 arr_lit: IDENT L_BRC maybe_expr_comma_list R_BRC .
+   50 expr7: expr7 NOT_EQ expr6 .
+   52 expr6: expr6 . PLUS expr5
+   53      | expr6 . MINUS expr5
 
-    $default  reduce using rule 63 (arr_lit)
+    MINUS  shift, and go to state 78
+    PLUS   shift, and go to state 79
+
+    $default  reduce using rule 50 (expr7)
 
 
 State 115
 
-   13 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr . R_PAR stmt
-   18 non_dangling_for: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr . R_PAR non_dangling_stmt
+   53 expr6: expr6 MINUS expr5 .
+   55 expr5: expr5 . STAR expr4
+   56      | expr5 . SLASH expr4
+   57      | expr5 . PRCT expr4
 
-    R_PAR  shift, and go to state 118
+    STAR   shift, and go to state 80
+    SLASH  shift, and go to state 81
+    PRCT   shift, and go to state 82
+
+    $default  reduce using rule 53 (expr6)
 
 
 State 116
 
-   10 if_stmt: IF L_PAR expr R_PAR non_dangling_stmt ELSE stmt .
+   52 expr6: expr6 PLUS expr5 .
+   55 expr5: expr5 . STAR expr4
+   56      | expr5 . SLASH expr4
+   57      | expr5 . PRCT expr4
 
-    $default  reduce using rule 10 (if_stmt)
+    STAR   shift, and go to state 80
+    SLASH  shift, and go to state 81
+    PRCT   shift, and go to state 82
+
+    $default  reduce using rule 52 (expr6)
 
 
 State 117
 
-   12 non_dangling_if: IF L_PAR expr R_PAR non_dangling_stmt ELSE non_dangling_stmt .
+   55 expr5: expr5 STAR expr4 .
+   59 expr4: expr4 . CARET expr3
 
-    $default  reduce using rule 12 (non_dangling_if)
+    CARET  shift, and go to state 83
+
+    $default  reduce using rule 55 (expr5)
 
 
 State 118
 
-   13 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR . stmt
-   18 non_dangling_for: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR . non_dangling_stmt
+   56 expr5: expr5 SLASH expr4 .
+   59 expr4: expr4 . CARET expr3
 
-    FOR       shift, and go to state 1
-    IF        shift, and go to state 2
-    PRINT     shift, and go to state 3
-    RETURN    shift, and go to state 4
-    L_PAR     shift, and go to state 5
-    L_BRK     shift, and go to state 6
-    L_BRC     shift, and go to state 7
-    MINUS     shift, and go to state 8
-    NOT       shift, and go to state 9
-    PLUS      shift, and go to state 10
-    IDENT     shift, and go to state 11
-    STR_LIT   shift, and go to state 12
-    INT_LIT   shift, and go to state 13
-    CHAR_LIT  shift, and go to state 14
+    CARET  shift, and go to state 83
 
-    stmt                      go to state 119
-    non_right_recursive_stmt  go to state 107
-    if_stmt                   go to state 18
-    non_dangling_if           go to state 108
-    for_stmt                  go to state 20
-    non_dangling_stmt         go to state 120
-    non_dangling_for          go to state 110
-    expr                      go to state 22
-    lvalue                    go to state 23
-    expr10                    go to state 24
-    expr9                     go to state 25
-    expr8                     go to state 26
-    expr7                     go to state 27
-    expr6                     go to state 28
-    expr5                     go to state 29
-    expr4                     go to state 30
-    expr3                     go to state 31
-    expr2                     go to state 32
-    expr1                     go to state 33
-    atom                      go to state 34
-    func_call                 go to state 35
+    $default  reduce using rule 56 (expr5)
 
 
 State 119
 
-   13 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt .
+   57 expr5: expr5 PRCT expr4 .
+   59 expr4: expr4 . CARET expr3
 
-    $default  reduce using rule 13 (for_stmt)
+    CARET  shift, and go to state 83
+
+    $default  reduce using rule 57 (expr5)
 
 
 State 120
 
-   18 non_dangling_for: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt .
+   59 expr4: expr4 CARET expr3 .
 
-    $default  reduce using rule 18 (non_dangling_for)
+    $default  reduce using rule 59 (expr4)
+
+
+State 121
+
+   16 param_list: IDENT COLON type .
+   17           | IDENT COLON type . COMMA param_list
+
+    COMMA  shift, and go to state 131
+
+    $default  reduce using rule 16 (param_list)
+
+
+State 122
+
+   28 for_stmt: FOR L_PAR maybe_expr . S_COL maybe_expr S_COL maybe_expr R_PAR stmt
+
+    S_COL  shift, and go to state 132
+
+
+State 123
+
+   25 if_stmt: IF L_PAR expr . R_PAR non_dangling_stmt ELSE stmt
+   26        | IF L_PAR expr . R_PAR stmt
+
+    R_PAR  shift, and go to state 133
+
+
+State 124
+
+   81 expr_comma_list: expr COMMA . expr_comma_list
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    expr             go to state 93
+    lvalue           go to state 33
+    expr10           go to state 34
+    expr9            go to state 35
+    expr8            go to state 36
+    expr7            go to state 37
+    expr6            go to state 38
+    expr5            go to state 39
+    expr4            go to state 40
+    expr3            go to state 41
+    expr2            go to state 42
+    expr1            go to state 43
+    atom             go to state 44
+    func_call        go to state 45
+    expr_comma_list  go to state 134
+
+
+State 125
+
+   23 non_right_recursive_stmt: PRINT maybe_expr_comma_list S_COL .
+
+    $default  reduce using rule 23 (non_right_recursive_stmt)
+
+
+State 126
+
+   24 non_right_recursive_stmt: RETURN maybe_expr S_COL .
+
+    $default  reduce using rule 24 (non_right_recursive_stmt)
+
+
+State 127
+
+   22 non_right_recursive_stmt: L_BRC maybe_stmts R_BRC .
+
+    $default  reduce using rule 22 (non_right_recursive_stmt)
+
+
+State 128
+
+   76 func_call: IDENT L_PAR maybe_expr_comma_list R_PAR .
+
+    $default  reduce using rule 76 (func_call)
+
+
+State 129
+
+   36 lvalue: IDENT L_BRK expr R_BRK .
+
+    $default  reduce using rule 36 (lvalue)
+
+
+State 130
+
+   77 arr_lit: IDENT L_BRC . expr_comma_list R_BRC
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    expr             go to state 93
+    lvalue           go to state 33
+    expr10           go to state 34
+    expr9            go to state 35
+    expr8            go to state 36
+    expr7            go to state 37
+    expr6            go to state 38
+    expr5            go to state 39
+    expr4            go to state 40
+    expr3            go to state 41
+    expr2            go to state 42
+    expr1            go to state 43
+    atom             go to state 44
+    func_call        go to state 45
+    expr_comma_list  go to state 135
+
+
+State 131
+
+   17 param_list: IDENT COLON type COMMA . param_list
+
+    IDENT  shift, and go to state 47
+
+    param_list  go to state 136
+
+
+State 132
+
+   28 for_stmt: FOR L_PAR maybe_expr S_COL . maybe_expr S_COL maybe_expr R_PAR stmt
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    $default  reduce using rule 82 (maybe_expr)
+
+    expr        go to state 96
+    lvalue      go to state 33
+    expr10      go to state 34
+    expr9       go to state 35
+    expr8       go to state 36
+    expr7       go to state 37
+    expr6       go to state 38
+    expr5       go to state 39
+    expr4       go to state 40
+    expr3       go to state 41
+    expr2       go to state 42
+    expr1       go to state 43
+    atom        go to state 44
+    func_call   go to state 45
+    maybe_expr  go to state 137
+
+
+State 133
+
+   25 if_stmt: IF L_PAR expr R_PAR . non_dangling_stmt ELSE stmt
+   26        | IF L_PAR expr R_PAR . stmt
+
+    FOR       shift, and go to state 138
+    IF        shift, and go to state 139
+    PRINT     shift, and go to state 54
+    RETURN    shift, and go to state 55
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    L_BRC     shift, and go to state 56
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    stmt                      go to state 140
+    non_right_recursive_stmt  go to state 141
+    if_stmt                   go to state 59
+    non_dangling_if           go to state 142
+    for_stmt                  go to state 60
+    non_dangling_stmt         go to state 143
+    non_dangling_for          go to state 144
+    expr                      go to state 62
+    lvalue                    go to state 33
+    expr10                    go to state 34
+    expr9                     go to state 35
+    expr8                     go to state 36
+    expr7                     go to state 37
+    expr6                     go to state 38
+    expr5                     go to state 39
+    expr4                     go to state 40
+    expr3                     go to state 41
+    expr2                     go to state 42
+    expr1                     go to state 43
+    atom                      go to state 44
+    func_call                 go to state 45
+
+
+State 134
+
+   81 expr_comma_list: expr COMMA expr_comma_list .
+
+    $default  reduce using rule 81 (expr_comma_list)
+
+
+State 135
+
+   77 arr_lit: IDENT L_BRC expr_comma_list . R_BRC
+
+    R_BRC  shift, and go to state 145
+
+
+State 136
+
+   17 param_list: IDENT COLON type COMMA param_list .
+
+    $default  reduce using rule 17 (param_list)
+
+
+State 137
+
+   28 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr . S_COL maybe_expr R_PAR stmt
+
+    S_COL  shift, and go to state 146
+
+
+State 138
+
+   28 for_stmt: FOR . L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
+   32 non_dangling_for: FOR . L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt
+
+    L_PAR  shift, and go to state 147
+
+
+State 139
+
+   25 if_stmt: IF . L_PAR expr R_PAR non_dangling_stmt ELSE stmt
+   26        | IF . L_PAR expr R_PAR stmt
+   27 non_dangling_if: IF . L_PAR expr R_PAR non_dangling_stmt ELSE non_dangling_stmt
+
+    L_PAR  shift, and go to state 148
+
+
+State 140
+
+   26 if_stmt: IF L_PAR expr R_PAR stmt .
+
+    $default  reduce using rule 26 (if_stmt)
+
+
+State 141
+
+   18 stmt: non_right_recursive_stmt .
+   29 non_dangling_stmt: non_right_recursive_stmt .
+
+    ELSE      reduce using rule 29 (non_dangling_stmt)
+    $default  reduce using rule 18 (stmt)
+
+
+State 142
+
+   31 non_dangling_stmt: non_dangling_if .
+
+    $default  reduce using rule 31 (non_dangling_stmt)
+
+
+State 143
+
+   25 if_stmt: IF L_PAR expr R_PAR non_dangling_stmt . ELSE stmt
+
+    ELSE  shift, and go to state 149
+
+
+State 144
+
+   30 non_dangling_stmt: non_dangling_for .
+
+    $default  reduce using rule 30 (non_dangling_stmt)
+
+
+State 145
+
+   77 arr_lit: IDENT L_BRC expr_comma_list R_BRC .
+
+    $default  reduce using rule 77 (arr_lit)
+
+
+State 146
+
+   28 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL . maybe_expr R_PAR stmt
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    $default  reduce using rule 82 (maybe_expr)
+
+    expr        go to state 96
+    lvalue      go to state 33
+    expr10      go to state 34
+    expr9       go to state 35
+    expr8       go to state 36
+    expr7       go to state 37
+    expr6       go to state 38
+    expr5       go to state 39
+    expr4       go to state 40
+    expr3       go to state 41
+    expr2       go to state 42
+    expr1       go to state 43
+    atom        go to state 44
+    func_call   go to state 45
+    maybe_expr  go to state 150
+
+
+State 147
+
+   28 for_stmt: FOR L_PAR . maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
+   32 non_dangling_for: FOR L_PAR . maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    $default  reduce using rule 82 (maybe_expr)
+
+    expr        go to state 96
+    lvalue      go to state 33
+    expr10      go to state 34
+    expr9       go to state 35
+    expr8       go to state 36
+    expr7       go to state 37
+    expr6       go to state 38
+    expr5       go to state 39
+    expr4       go to state 40
+    expr3       go to state 41
+    expr2       go to state 42
+    expr1       go to state 43
+    atom        go to state 44
+    func_call   go to state 45
+    maybe_expr  go to state 151
+
+
+State 148
+
+   25 if_stmt: IF L_PAR . expr R_PAR non_dangling_stmt ELSE stmt
+   26        | IF L_PAR . expr R_PAR stmt
+   27 non_dangling_if: IF L_PAR . expr R_PAR non_dangling_stmt ELSE non_dangling_stmt
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    expr       go to state 152
+    lvalue     go to state 33
+    expr10     go to state 34
+    expr9      go to state 35
+    expr8      go to state 36
+    expr7      go to state 37
+    expr6      go to state 38
+    expr5      go to state 39
+    expr4      go to state 40
+    expr3      go to state 41
+    expr2      go to state 42
+    expr1      go to state 43
+    atom       go to state 44
+    func_call  go to state 45
+
+
+State 149
+
+   25 if_stmt: IF L_PAR expr R_PAR non_dangling_stmt ELSE . stmt
+
+    FOR       shift, and go to state 52
+    IF        shift, and go to state 53
+    PRINT     shift, and go to state 54
+    RETURN    shift, and go to state 55
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    L_BRC     shift, and go to state 56
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    stmt                      go to state 153
+    non_right_recursive_stmt  go to state 58
+    if_stmt                   go to state 59
+    for_stmt                  go to state 60
+    expr                      go to state 62
+    lvalue                    go to state 33
+    expr10                    go to state 34
+    expr9                     go to state 35
+    expr8                     go to state 36
+    expr7                     go to state 37
+    expr6                     go to state 38
+    expr5                     go to state 39
+    expr4                     go to state 40
+    expr3                     go to state 41
+    expr2                     go to state 42
+    expr1                     go to state 43
+    atom                      go to state 44
+    func_call                 go to state 45
+
+
+State 150
+
+   28 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr . R_PAR stmt
+
+    R_PAR  shift, and go to state 154
+
+
+State 151
+
+   28 for_stmt: FOR L_PAR maybe_expr . S_COL maybe_expr S_COL maybe_expr R_PAR stmt
+   32 non_dangling_for: FOR L_PAR maybe_expr . S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt
+
+    S_COL  shift, and go to state 155
+
+
+State 152
+
+   25 if_stmt: IF L_PAR expr . R_PAR non_dangling_stmt ELSE stmt
+   26        | IF L_PAR expr . R_PAR stmt
+   27 non_dangling_if: IF L_PAR expr . R_PAR non_dangling_stmt ELSE non_dangling_stmt
+
+    R_PAR  shift, and go to state 156
+
+
+State 153
+
+   25 if_stmt: IF L_PAR expr R_PAR non_dangling_stmt ELSE stmt .
+
+    $default  reduce using rule 25 (if_stmt)
+
+
+State 154
+
+   28 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR . stmt
+
+    FOR       shift, and go to state 52
+    IF        shift, and go to state 53
+    PRINT     shift, and go to state 54
+    RETURN    shift, and go to state 55
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    L_BRC     shift, and go to state 56
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    stmt                      go to state 157
+    non_right_recursive_stmt  go to state 58
+    if_stmt                   go to state 59
+    for_stmt                  go to state 60
+    expr                      go to state 62
+    lvalue                    go to state 33
+    expr10                    go to state 34
+    expr9                     go to state 35
+    expr8                     go to state 36
+    expr7                     go to state 37
+    expr6                     go to state 38
+    expr5                     go to state 39
+    expr4                     go to state 40
+    expr3                     go to state 41
+    expr2                     go to state 42
+    expr1                     go to state 43
+    atom                      go to state 44
+    func_call                 go to state 45
+
+
+State 155
+
+   28 for_stmt: FOR L_PAR maybe_expr S_COL . maybe_expr S_COL maybe_expr R_PAR stmt
+   32 non_dangling_for: FOR L_PAR maybe_expr S_COL . maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    $default  reduce using rule 82 (maybe_expr)
+
+    expr        go to state 96
+    lvalue      go to state 33
+    expr10      go to state 34
+    expr9       go to state 35
+    expr8       go to state 36
+    expr7       go to state 37
+    expr6       go to state 38
+    expr5       go to state 39
+    expr4       go to state 40
+    expr3       go to state 41
+    expr2       go to state 42
+    expr1       go to state 43
+    atom        go to state 44
+    func_call   go to state 45
+    maybe_expr  go to state 158
+
+
+State 156
+
+   25 if_stmt: IF L_PAR expr R_PAR . non_dangling_stmt ELSE stmt
+   26        | IF L_PAR expr R_PAR . stmt
+   27 non_dangling_if: IF L_PAR expr R_PAR . non_dangling_stmt ELSE non_dangling_stmt
+
+    FOR       shift, and go to state 138
+    IF        shift, and go to state 139
+    PRINT     shift, and go to state 54
+    RETURN    shift, and go to state 55
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    L_BRC     shift, and go to state 56
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    stmt                      go to state 140
+    non_right_recursive_stmt  go to state 141
+    if_stmt                   go to state 59
+    non_dangling_if           go to state 142
+    for_stmt                  go to state 60
+    non_dangling_stmt         go to state 159
+    non_dangling_for          go to state 144
+    expr                      go to state 62
+    lvalue                    go to state 33
+    expr10                    go to state 34
+    expr9                     go to state 35
+    expr8                     go to state 36
+    expr7                     go to state 37
+    expr6                     go to state 38
+    expr5                     go to state 39
+    expr4                     go to state 40
+    expr3                     go to state 41
+    expr2                     go to state 42
+    expr1                     go to state 43
+    atom                      go to state 44
+    func_call                 go to state 45
+
+
+State 157
+
+   28 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt .
+
+    $default  reduce using rule 28 (for_stmt)
+
+
+State 158
+
+   28 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr . S_COL maybe_expr R_PAR stmt
+   32 non_dangling_for: FOR L_PAR maybe_expr S_COL maybe_expr . S_COL maybe_expr R_PAR non_dangling_stmt
+
+    S_COL  shift, and go to state 160
+
+
+State 159
+
+   25 if_stmt: IF L_PAR expr R_PAR non_dangling_stmt . ELSE stmt
+   27 non_dangling_if: IF L_PAR expr R_PAR non_dangling_stmt . ELSE non_dangling_stmt
+
+    ELSE  shift, and go to state 161
+
+
+State 160
+
+   28 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL . maybe_expr R_PAR stmt
+   32 non_dangling_for: FOR L_PAR maybe_expr S_COL maybe_expr S_COL . maybe_expr R_PAR non_dangling_stmt
+
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    $default  reduce using rule 82 (maybe_expr)
+
+    expr        go to state 96
+    lvalue      go to state 33
+    expr10      go to state 34
+    expr9       go to state 35
+    expr8       go to state 36
+    expr7       go to state 37
+    expr6       go to state 38
+    expr5       go to state 39
+    expr4       go to state 40
+    expr3       go to state 41
+    expr2       go to state 42
+    expr1       go to state 43
+    atom        go to state 44
+    func_call   go to state 45
+    maybe_expr  go to state 162
+
+
+State 161
+
+   25 if_stmt: IF L_PAR expr R_PAR non_dangling_stmt ELSE . stmt
+   27 non_dangling_if: IF L_PAR expr R_PAR non_dangling_stmt ELSE . non_dangling_stmt
+
+    FOR       shift, and go to state 138
+    IF        shift, and go to state 139
+    PRINT     shift, and go to state 54
+    RETURN    shift, and go to state 55
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    L_BRC     shift, and go to state 56
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    stmt                      go to state 153
+    non_right_recursive_stmt  go to state 141
+    if_stmt                   go to state 59
+    non_dangling_if           go to state 142
+    for_stmt                  go to state 60
+    non_dangling_stmt         go to state 163
+    non_dangling_for          go to state 144
+    expr                      go to state 62
+    lvalue                    go to state 33
+    expr10                    go to state 34
+    expr9                     go to state 35
+    expr8                     go to state 36
+    expr7                     go to state 37
+    expr6                     go to state 38
+    expr5                     go to state 39
+    expr4                     go to state 40
+    expr3                     go to state 41
+    expr2                     go to state 42
+    expr1                     go to state 43
+    atom                      go to state 44
+    func_call                 go to state 45
+
+
+State 162
+
+   28 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr . R_PAR stmt
+   32 non_dangling_for: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr . R_PAR non_dangling_stmt
+
+    R_PAR  shift, and go to state 164
+
+
+State 163
+
+   27 non_dangling_if: IF L_PAR expr R_PAR non_dangling_stmt ELSE non_dangling_stmt .
+
+    $default  reduce using rule 27 (non_dangling_if)
+
+
+State 164
+
+   28 for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR . stmt
+   32 non_dangling_for: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR . non_dangling_stmt
+
+    FOR       shift, and go to state 138
+    IF        shift, and go to state 139
+    PRINT     shift, and go to state 54
+    RETURN    shift, and go to state 55
+    L_PAR     shift, and go to state 22
+    L_BRK     shift, and go to state 23
+    L_BRC     shift, and go to state 56
+    MINUS     shift, and go to state 25
+    NOT       shift, and go to state 26
+    PLUS      shift, and go to state 27
+    IDENT     shift, and go to state 28
+    STR_LIT   shift, and go to state 29
+    INT_LIT   shift, and go to state 30
+    CHAR_LIT  shift, and go to state 31
+
+    stmt                      go to state 157
+    non_right_recursive_stmt  go to state 141
+    if_stmt                   go to state 59
+    non_dangling_if           go to state 142
+    for_stmt                  go to state 60
+    non_dangling_stmt         go to state 165
+    non_dangling_for          go to state 144
+    expr                      go to state 62
+    lvalue                    go to state 33
+    expr10                    go to state 34
+    expr9                     go to state 35
+    expr8                     go to state 36
+    expr7                     go to state 37
+    expr6                     go to state 38
+    expr5                     go to state 39
+    expr4                     go to state 40
+    expr3                     go to state 41
+    expr2                     go to state 42
+    expr1                     go to state 43
+    atom                      go to state 44
+    func_call                 go to state 45
+
+
+State 165
+
+   32 non_dangling_for: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt .
+
+    $default  reduce using rule 32 (non_dangling_for)

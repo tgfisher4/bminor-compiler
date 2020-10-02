@@ -19,11 +19,41 @@ extern int yyerror( char *str );
 
 %%
 
-program : stmt {{return 0;}}
+program : maybe_decls {{return 0;}}
         ;
 
+maybe_decls : /* empty*/
+            | decl maybe_decls
+            ;
 
-/* END PROGRAM ============================ BEGIN STATEMENTS */
+/* END PROGRAM ================================= BEGIN DECLARATIONS */
+// here's an idea: leave semi-colon off declaration and allow decl = expr; and decl; as a statement
+// problem: if we only want to allow decl's in our top level program, how to include/differentiate/have decls w/o having a statement
+decl : IDENT COLON type S_COL
+     | IDENT COLON type ASGN expr S_COL
+     | IDENT COLON type ASGN L_BRC maybe_stmts R_BRC
+     ;
+
+type : INTEGER
+     | STRING
+     | CHAR
+     | ARRAY L_BRK INT_LIT R_BRK type
+/*   | ARRAY L_BRK expr R_BRK type   /* maybe in the future... */
+     | FUNCTION return_type L_PAR maybe_param_list R_PAR
+     ;
+
+return_type : type | VOID ;
+
+maybe_param_list : /* empty */
+                 | param_list
+                 ;
+
+param_list : IDENT COLON type 
+           | IDENT COLON type COMMA param_list
+           ;
+
+
+/* END DECLARATIONS ============================ BEGIN STATEMENTS */
 
 /*
 if and for statements need to be considered separately because they both end with statements
@@ -32,10 +62,23 @@ if and for statements need to be considered separately because they both end wit
 
     - Java's solution (https://docs.oracle.com/javase/specs/jls/se9/html/jls-14.html), which inspired mine: a statement can be anything we would think it would be. However, the "then" clause of an if-then statement can only contain a statement known not to end with a dangling if: this ensures that the "else" must match this "if" unambiguously. The statements known for sure not to end with a dangling if are those which do not end with another statement and those which do end with another statement, but that statement is known not to end with a dangling else.
 */
+
+
+/*
+stmt : non_dangling_stmt
+     | dangling_if
+     | dangling_for
+     ;
+*/
+
+
+
 stmt : non_right_recursive_stmt
-     | if_stmt
+     | if_stmt /* (if-else) */
+  /* | IF L_PAR expr R_PAR stmt (only if) */
      | for_stmt
      ;
+
 
 non_right_recursive_stmt : expr S_COL
                          | L_BRC maybe_stmts R_BRC
@@ -43,17 +86,34 @@ non_right_recursive_stmt : expr S_COL
                          | RETURN maybe_expr S_COL
                          ;
 
-if_stmt : IF L_PAR expr R_PAR stmt
+/*
+dangling_if : IF L_PAR expr R_PAR stmt
         | IF L_PAR expr R_PAR non_dangling_stmt ELSE stmt
-        | non_dangling_if
         ;
+*/
+
+
+if_stmt : IF L_PAR expr R_PAR non_dangling_stmt ELSE stmt
+        /* | non_dangling_if */
+        | IF L_PAR expr R_PAR stmt 
+        ;
+
 
 non_dangling_if : IF L_PAR expr R_PAR non_dangling_stmt ELSE non_dangling_stmt ;
 
 /* note that a non_dangling_stmt cannot reduce to a stmt directly, so there is no ambiguity here */
-for_stmt: FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
-        | non_dangling_for
-        ;
+
+/*
+dangling_for : FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
+             ;
+*/
+
+
+for_stmt : FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
+         /* | non_dangling_for */
+         ;
+
+
 
 /* statement not ending with a dangling if - "NoShortIf". The only place we use this in a rule besides to define other non_dangling structures is the if-else "then" body */
 non_dangling_stmt : non_right_recursive_stmt
@@ -63,9 +123,9 @@ non_dangling_stmt : non_right_recursive_stmt
 
 non_dangling_for : FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt ;
 
-maybe_stmts: /* empty */
-           | stmt maybe_stmts
-           ;
+maybe_stmts : /* empty */
+            | stmt maybe_stmts
+            ;
 
 /* END STATEMENTS ============================ BEGIN EXPRESSIONS */
 
@@ -164,7 +224,7 @@ func_call: IDENT L_PAR maybe_expr_comma_list R_PAR
          ;
 
 /* array literal: {<value list>} - used to initialize arrays at declaration */
-arr_lit : IDENT L_BRC maybe_expr_comma_list R_BRC
+arr_lit : IDENT L_BRC expr_comma_list R_BRC
         ;
 
 /* maybe comma separated list : comma list of empty */
