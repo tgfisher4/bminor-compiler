@@ -20,7 +20,7 @@ extern int yyerror( char *str );
 
 %%
 
-program : maybe_decls { return 0; }
+program : maybe_decls TOKEN_EOF { return 0; }
         ;
 
 /* END PROGRAM ================================= BEGIN DECLARATIONS */
