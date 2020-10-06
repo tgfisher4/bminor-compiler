@@ -1,0 +1,4 @@
+// no anonymous functions
+
+function inte.ger () = {
+    @print 12;

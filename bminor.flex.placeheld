@@ -10,6 +10,9 @@
     char *last_string_literal;
 %}
 
+%option nounput
+%option noinput
+
  /* DEFINITIONS */
  /* interesting regexs placed here along with custom classes since the rules section is necessarily cluttered */
 DIGIT       [0-9]

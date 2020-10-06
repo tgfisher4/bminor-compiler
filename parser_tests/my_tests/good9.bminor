@@ -1,0 +1,11 @@
+sz: integer = 10;
+map: function array [sz] integer(f: function integer(x: integer), arr: array [] integer) = {
+    /*
+    i: integer = 0;
+    output: array [sz] integer;
+    for(i = 0; i < sz; i++){
+        output[i] = f(arr[i]);
+    }
+    return output;
+    */
+}

@@ -1,0 +1,5 @@
+// c-type function definitions not allowed
+
+int main () = {
+    print;
+}

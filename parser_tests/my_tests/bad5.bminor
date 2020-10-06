@@ -1,0 +1,5 @@
+// if expression cannot be empty
+
+main: function void() = {
+    if () print;
+}

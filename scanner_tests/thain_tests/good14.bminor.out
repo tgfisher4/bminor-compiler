@@ -62,6 +62,7 @@ S_COL
 IDENT count
 LT
 IDENT n
+PLUS
 INT_LIT 1
 S_COL
 IDENT count
@@ -75,3 +76,4 @@ PLUS
 IDENT count
 S_COL
 R_BRC
+scan successful

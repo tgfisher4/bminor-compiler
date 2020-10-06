@@ -39,16 +39,21 @@ int main(int argc, char **argv){
     bool stages[] = {false, false, false, false};
     char *to_compile = "";
 
+    bool run_all = true;
+
     /* process CL args */
     process_cl_args(argc, argv, stages, &to_compile);
+
+    for(int i = 0; i < 4; i++)      run_all = run_all && !stages[i];
 
     /* scan */
     if(stages[SCAN] && scan_file(to_compile)) { printf ("scan unsuccessful\n"); return EXIT_FAILURE; }
 
     /* parse */
-    if(stages [PARSE] && parse_file(to_compile)) { printf("parse unsuccessful\n"); return EXIT_FAILURE; }
+    if( (stages [PARSE] || run_all) && parse_file(to_compile)) { printf("parse unsuccessful\n"); return EXIT_FAILURE; }
 
-    printf("%s successful\n", argv[1]+1);
+    if (run_all)    printf("compilation successful\n");
+    else            printf("%s successful\n", argv[1]+1);
 
     return EXIT_SUCCESS;
 }

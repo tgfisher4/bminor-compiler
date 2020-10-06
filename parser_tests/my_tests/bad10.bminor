@@ -1,0 +1,4 @@
+// semicolon shouldn't follow a block and statement shouldn't occur w/in array literal
+main: function void() = {
+    { if (1) print; else print; };
+}

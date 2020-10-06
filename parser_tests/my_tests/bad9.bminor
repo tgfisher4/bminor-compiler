@@ -1,0 +1,5 @@
+// declaration is not an expression
+
+main: function void() = {
+    x: integer = y: integer = z;
+}

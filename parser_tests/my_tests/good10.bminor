@@ -1,0 +1,10 @@
+// subfunctions parse, but we'll reject them during type checking, etc
+
+f: function integer (y: integer) = {
+    g: function integer (x: void) = {
+        print x, '\n';
+    }
+
+    g(y);
+    return 40;
+}

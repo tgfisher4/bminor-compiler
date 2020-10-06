@@ -1,0 +1,4 @@
+// C-style variable declarations not allowed
+main: function void () = {
+    int x = 1;
+}

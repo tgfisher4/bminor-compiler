@@ -17,18 +17,13 @@ extern int yyerror( char *str );
 %token INTERNAL_ERR
 %token SCAN_ERR
 
+
 %%
 
-program : maybe_decls {{return 0;}}
+program : maybe_decls { return 0; }
         ;
 
-maybe_decls : /* empty*/
-            | decl maybe_decls
-            ;
-
 /* END PROGRAM ================================= BEGIN DECLARATIONS */
-// here's an idea: leave semi-colon off declaration and allow decl = expr; and decl; as a statement
-// problem: if we only want to allow decl's in our top level program, how to include/differentiate/have decls w/o having a statement
 decl : IDENT COLON type S_COL
      | IDENT COLON type ASGN expr S_COL
      | IDENT COLON type ASGN L_BRC maybe_stmts R_BRC
@@ -39,7 +34,9 @@ type : INTEGER
      | CHAR
      | BOOLEAN
      | VOID
+     | ARRAY L_BRK R_BRK type        /* infer length from initializer */
      | ARRAY L_BRK expr R_BRK type   /* we'll catch whether this expression is of a type for which we can generate code later on in the pipeline */
+
      | FUNCTION type L_PAR maybe_param_list R_PAR
      ;
 
@@ -47,14 +44,13 @@ maybe_param_list : /* empty */
                  | param_list
                  ;
 
-param_list : IDENT COLON param_type 
-           | IDENT COLON param_type COMMA param_list
+param_list : IDENT COLON type 
+           | IDENT COLON type COMMA param_list
            ;
 
-param_type : type
-           | ARRAY L_BRK R_BRK param_type
-           ;
-
+maybe_decls : /* empty*/
+            | decl maybe_decls
+            ;
 
 /* END DECLARATIONS ============================ BEGIN STATEMENTS */
 
@@ -63,7 +59,7 @@ if and for statements need to be considered separately because they both end wit
     - if-else is obviously vulnerable to dangling else ambiguities
     - once if-else solved, we need to be careful of for statements too. They end with a statement, meaning if we included them in a 'stmt' nonterminal and did nothing else, then it is possible that a for loop appears as the "then" body of an if-else statement and its 'stmt' might be a dangling if: then, we would have ambiguities again.
 
-    - Java's solution (https://docs.oracle.com/javase/specs/jls/se9/html/jls-14.html), which inspired mine: a statement can be anything we would think it would be. However, the "then" clause of an if-then statement can only contain a statement known not to end with a dangling if: this ensures that the "else" must match this "if" unambiguously. The statements known for sure not to end with a dangling if are those which do not end with another statement and those which do end with another statement, but that statement is known not to end with a dangling else.
+    - Note: drew inspriation from in-class dangling-if discussion and Java's solution (https://docs.oracle.com/javase/specs/jls/se9/html/jls-14.html). A statement can be anything we would think it would be. However, the "then" clause of an if-then statement can only contain a statement known not to end with a dangling if: this ensures that the "else" must match this "if" unambiguously. The statements known for sure not to end with a dangling if are those which do not end with another statement and those which do end with another statement, but that statement is known not to end with a dangling else.
 */
 
 stmt : non_right_recursive_stmt
@@ -92,7 +88,7 @@ for_stmt : FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt ;
 non_dangling_for : FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt ;
 
 
-/* statement not ending with a dangling if - "NoShortIf" in the Java Vocabulary. The only place we use this in a rule besides to define other non_dangling structures is the if-else "then" body */
+/* statement not ending with a dangling if. The only place we use this in a rule besides to define other non_dangling structures is the if-else "then" body */
 /* note that a non_dangling_stmt cannot reduce to a stmt directly, so there is no ambiguity here */
 non_dangling_stmt : non_right_recursive_stmt
                   | non_dangling_for

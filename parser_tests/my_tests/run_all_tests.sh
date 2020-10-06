@@ -1,7 +1,7 @@
 #!/bin/bash
 
 for testfile in good*.bminor; do
-    ./bminor -scan $testfile > >(tee ${testfile}.out > /dev/null) 2> >(tee ${testfile}.out >&2)
+    ./bminor -parse $testfile > >(tee ${testfile}.out > /dev/null) 2> >(tee ${testfile}.out >&2)
     e_st=$?
     sleep 0.2
 	if [ $e_st -eq 0 ]; then
@@ -12,7 +12,7 @@ for testfile in good*.bminor; do
 done
 
 for testfile in bad*.bminor; do
-    ./bminor -scan $testfile > >(tee ${testfile}.out > /dev/null) 2> >(tee ${testfile}.out >&2)
+    ./bminor -parse $testfile > >(tee ${testfile}.out > /dev/null) 2> >(tee ${testfile}.out >&2)
     e_st=$?
     sleep 0.2
 	if [ $e_st -eq 0 ]; then
