@@ -180,7 +180,8 @@ atom : IDENT
 
 
 /* function call: <function name>(<arg list>) */
-func_call: IDENT L_PAR maybe_expr_comma_list R_PAR
+/* use expr1 instead of ident at the head of this call so that I can have a function return a function, and then access that function */
+func_call: expr1 L_PAR maybe_expr_comma_list R_PAR
          ;
 
 /* array literal: {<value list>} - used to initialize arrays at declaration */
