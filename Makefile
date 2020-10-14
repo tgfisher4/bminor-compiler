@@ -11,6 +11,9 @@ TARGETS = bminor
 
 all:		$(TARGETS)
 
+test: bminor
+	./run_all_tests.sh
+
 clean:
 	@echo Cleaning...
 	@rm -f $(TARGETS)
@@ -18,6 +21,9 @@ clean:
 	@rm -f *.o
 	@rm -f bminor.c bminor.$(LEX) bminor.$(YACC) bminor_parse.c bminor_scan.c
 	@rm -f main.c
+	@rm -f bminor_parse.output
+	@#@for file in $(shell ls *_tests/*_tests/*.out); do echo $$file; done
+	@rm -f *_tests/*_tests/*.out
 	@rm -f valgrind-out.txt
 
 bminor: 	main.o bminor_scan.o bminor_parse.o token.h

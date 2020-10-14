@@ -1,4 +1,5 @@
 // no anonymous functions
 
-function inte.ger () = {
-    @print 12;
+function integer () = {
+    print 12;
+}
