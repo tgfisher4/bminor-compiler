@@ -90,3 +90,4 @@ PRINT
 STR_LIT  a && b is true
 S_COL
 R_BRC
+scan successful

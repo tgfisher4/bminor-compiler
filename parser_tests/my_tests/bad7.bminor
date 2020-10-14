@@ -1,0 +1,4 @@
+// arrays must include [] in declaration
+main: function void() = {
+    arr: array array integer;
+}

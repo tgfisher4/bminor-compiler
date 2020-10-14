@@ -8,3 +8,4 @@ IDENT variable_names_may_contain_underscores_
 IDENT _variables_can_start_with_an_underscore_67
 INT_LIT 7
 IDENT minus5
+scan successful

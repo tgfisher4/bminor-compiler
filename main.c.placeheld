@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <errno.h>
 
+typedef enum yytokentype token_t;
+
 extern FILE *yyin;
 extern int   yylex();
 extern char *yytext;
@@ -12,8 +14,15 @@ extern int   last_int_literal;
 extern char  last_char_literal;
 extern char *last_string_literal;
 
+extern int yyparse();
+
 int scan_file(char *filename);
+int parse_file(char *filename);
 void process_cl_args(int, char**, bool*, char**);
+
+/* stages */
+int SCAN  = 0,
+    PARSE = 1;
 
 void usage(int return_code, char *called_as){
     printf(
@@ -27,23 +36,36 @@ void usage(int return_code, char *called_as){
 
 int main(int argc, char **argv){
     // default values
-    bool scan;
+    bool stages[] = {false, false, false, false};
     char *to_compile = "";
 
+    bool run_all = true;
+
     /* process CL args */
-    process_cl_args(argc, argv, &scan, &to_compile);
+    process_cl_args(argc, argv, stages, &to_compile);
+
+    for(int i = 0; i < 4; i++)      run_all = run_all && !stages[i];
 
     /* scan */
-    if(scan && scan_file(to_compile)) return EXIT_FAILURE;
+    if(stages[SCAN] && scan_file(to_compile)) { printf ("scan unsuccessful\n"); return EXIT_FAILURE; }
+
+    /* parse */
+    if( (stages [PARSE] || run_all) && parse_file(to_compile)) { printf("parse unsuccessful\n"); return EXIT_FAILURE; }
+
+    if (run_all)    printf("compilation successful\n");
+    else            printf("%s successful\n", argv[1]+1);
+
     return EXIT_SUCCESS;
 }
 
-void process_cl_args(int argc, char **argv, bool *scan, char **to_compile){ 
-    *scan = false;
+void process_cl_args(int argc, char **argv, bool *stages, char **to_compile){ 
 
     for (int i = 1; i < argc; i++){
         if (!strcmp("-scan", argv[i])){
-            *scan = true;
+             stages[SCAN] = true;
+        }
+        else if (!strcmp("-parse", argv[i])){
+            stages[PARSE] = true;
         }
         else if ( !strcmp("-help", argv[i]) || !strcmp("-h", argv[i]) ){
             usage(EXIT_SUCCESS, argv[0]);
@@ -57,12 +79,26 @@ void process_cl_args(int argc, char **argv, bool *scan, char **to_compile){
     }
 }
 
+int parse_file(char *filename){
+    yyin = fopen(filename, "r");
+    if(!yyin) {
+        printf("Could not open %s! %s\n", filename, strerror(errno));
+        return 1;
+    }
+    // 0 for success, 1 for failure
+    int to_return = yyparse();
+    fclose(yyin);
+    return to_return;
+}
+
 int scan_file(char *filename){ 
     /* Runs the flex-generated scanner on the file with name given by 'filename'
         - returns 1 on failure, 0 on success */
 
     /* An array of strings, where token_strs[<token>] = "<token name as str>", where <token> is a value of the enum token_t and <token name as str> is the symbolic name given to <token> in the enum token_t. Substituted by the Makefile via sed, ensuring the array is up to date with token.h */
     char* token_strs[] = <token_str_arr_placeholder>;
+
+    int base = TOKEN_EOF;
 
     yyin = fopen(filename, "r");
     int ret_val = 1;
@@ -72,6 +108,7 @@ int scan_file(char *filename){
     }
     while(1) {
         token_t t = yylex();
+        int t_str_idx = t - base;
         switch(t){
             case TOKEN_EOF:
                 ret_val = 0;
@@ -85,20 +122,20 @@ int scan_file(char *filename){
                 ret_val = 1;
                 goto cleanup;
             case IDENT:
-                printf("%s %s\n", token_strs[t], yytext);
+                printf("%s %s\n", token_strs[t_str_idx], yytext);
                 break;
             case STR_LIT:
-                printf("%s %s\n", token_strs[t], last_string_literal);
+                printf("%s %s\n", token_strs[t_str_idx], last_string_literal);
                 free(last_string_literal);
                 break;
             case INT_LIT:
-                printf("%s %d\n", token_strs[t], last_int_literal);
+                printf("%s %d\n", token_strs[t_str_idx], last_int_literal);
                 break;
             case CHAR_LIT:
-                printf("%s %c\n", token_strs[t], last_char_literal);
+                printf("%s %c\n", token_strs[t_str_idx], last_char_literal);
                 break;
             default:
-                printf("%s\n", token_strs[t]);
+                printf("%s\n", token_strs[t_str_idx]);
                 break;
         }
     }

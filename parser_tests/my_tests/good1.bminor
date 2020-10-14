@@ -1,0 +1,4 @@
+a:integer = (4 + 5) * 3 % 12;
+
+b:boolean = 4 + 5 + 6;
+x:integer = +5;

@@ -1,0 +1,7 @@
+// if else stuff
+
+main: function void() = {
+    if (x) for (;;) if (x) x; else x;
+    if (x) if (y) if (z) for (;;) if (a) print; else print; else print; else print; else z;
+    if (i == 1) 1; else if (i == 2) y; else if (asf) z; else 1;
+}

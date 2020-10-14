@@ -1,0 +1,19 @@
+// test declarations without initializations
+i: integer;
+b: boolean;
+s: string;
+c: char;
+v: void;
+a: array [i + 4 * v && 12 --] array [6 || 3 >= 8  != arr[40 + 68 ^ 4 % 3]] void;
+f: function
+    array [-16] array [0] char
+    (x: function
+        function
+            boolean
+            (o_0: array[-16] array [0] string,
+             d: integer
+            )
+        (p: char,
+         str: string
+        )
+    );

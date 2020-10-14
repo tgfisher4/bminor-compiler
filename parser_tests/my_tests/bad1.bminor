@@ -1,0 +1,3 @@
+// doesn't scan => parse error
+
+I'm just treating this like a text file.

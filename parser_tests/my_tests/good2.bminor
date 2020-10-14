@@ -1,0 +1,11 @@
+malloc: function array [bytes] void (bytes: integer);
+free  : function integer (p: array [] void);
+
+main: function integer () = {
+
+    a: array [12] void = malloc(12);
+    yyparse(argv[1]);
+    free(a);
+    return 0;
+
+}

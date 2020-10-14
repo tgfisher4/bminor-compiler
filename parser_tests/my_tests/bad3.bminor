@@ -1,0 +1,4 @@
+// plus requires right operand
+main: function void () = {
+    x = a +;
+}
