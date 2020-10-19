@@ -1,0 +1,8 @@
+main: function integer () = {
+                i:string = "I am an indented declaration";
+        "I am an indented expression";
+
+
+
+        return "I am an indented statement";
+}

@@ -1,0 +1,7 @@
+i:integer=(3+4)*(4+3);
+i:integer=((3+4)*((4+3)));
+c:char='c';
+s:string="I am string";
+c:char='\n';
+c:string="I\nam a\
+string";

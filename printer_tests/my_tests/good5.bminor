@@ -1,0 +1,4 @@
+main: function integer () = {
+    i: integer = -(+ 6 * i++)++;
+    i = 5;
+}
