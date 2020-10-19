@@ -16,8 +16,8 @@ struct decl {
 };
 
 struct decl * decl_create( char *name, struct type *type, struct expr *init_value, struct stmt *func_body);
-void decl_print( struct decl *d, int indents, char term );
-void decl_print_list( struct decl *d, int indents, char term, char *delim );
+void decl_print( struct decl *d, int indents, char* term );
+void decl_print_list( struct decl *d, int indents, char* term, char *delim );
 
 #endif
 

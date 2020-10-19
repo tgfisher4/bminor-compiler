@@ -1,9 +1,11 @@
 #! /usr/bin/bash
 
+PARENT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
 input_file="${1}"
 #for token in $(awk '/{/,/}/' "${input_file}" | grep -v "[{}]" | tr -d '=0' | tr ',' '\n'); do
 
-echo {$(./reformat_space_list.sh -f <(cat bminor.bison | grep %token | sed -E 's|%token||g') -u -q)}
+echo {$(${PARENT}/reformat_space_list.sh -f <(cat bminor.bison | grep %token | sed -E 's|%token||g') -u -q)}
 
 exit 0
 

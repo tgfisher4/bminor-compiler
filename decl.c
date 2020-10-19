@@ -18,7 +18,7 @@ struct decl * decl_create(char *ident, struct type *type, struct expr *init_valu
     return d;
 }
 
-void decl_print(struct decl *d, int indents, char term){
+void decl_print(struct decl *d, int indents, char* term){
     if (!d) return;
 
     indent(indents);
@@ -35,10 +35,10 @@ void decl_print(struct decl *d, int indents, char term){
         stmt_print_list(d->func_body, indents + 1, "\n");
         indent(indents);
         fputs("\n}", stdout);
-    } else printf("%c", term);
+    } else fputs(term, stdout);
 }
 
-void decl_print_list(struct decl *d, int indents, char term, char *delim){
+void decl_print_list(struct decl *d, int indents, char* term, char *delim){
     if (!d) return;
     decl_print(d, indents, term);
     if (d->next) fputs(delim, stdout);

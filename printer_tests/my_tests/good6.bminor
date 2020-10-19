@@ -1,0 +1,17 @@
+// statements
+
+main: function integer () = {
+    print {"hello", "world"}[0];
+
+    s: string = "declaration";
+    i:integer;
+
+    for(i = 0; a[i] != -1; i++){
+        for(i;;){
+        for(;i;){
+        for(;;i){
+        if (cond){print;
+        } else if(cond2) return a()()[0](5)[18];
+        }}}
+    }
+}
