@@ -12,6 +12,7 @@ f: function void(x: integer, a: boolean) = {
     x: integer;
     c: char;
     x = !4;
+
     {
         // here's a block
         x = 6;

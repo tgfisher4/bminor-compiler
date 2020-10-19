@@ -1,0 +1,13 @@
+main: function integer() = {
+    if ("I say to you tomorrow"){
+        {
+            "take my hand, child, come with me";
+        }
+    }
+    else{
+        "It's to a castle I will take you";
+    }
+
+    return "Where what's to be they say will be";
+
+}

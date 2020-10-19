@@ -7,6 +7,8 @@ LEXFLAGS =
 YACC  = bison
 YACCFLAGS = --verbose
 
+AST_COMP = expr.o decl.o stmt.o type.o
+
 TARGETS = bminor
 
 all:		$(TARGETS)
@@ -22,11 +24,10 @@ clean:
 	@rm -f bminor.c bminor.$(LEX) bminor.$(YACC) bminor_parse.c bminor_scan.c
 	@rm -f main.c
 	@rm -f bminor_parse.output
-	@#@for file in $(shell ls *_tests/*_tests/*.out); do echo $$file; done
 	@rm -f *_tests/*_tests/*.out
 	@rm -f valgrind-out.txt
 
-bminor: 	main.o bminor_scan.o bminor_parse.o token.h
+bminor: 	main.o bminor_scan.o bminor_parse.o $(AST_COMP) token.h
 	@echo "Linking bminor..."
 	$(LD) $(LDFLAGS) -o $@ $^
 
@@ -41,17 +42,17 @@ bminor: 	main.o bminor_scan.o bminor_parse.o token.h
 	@echo "Compiling $@..."
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-bminor.$(LEX):	bminor.$(LEX).placeheld
+bminor.$(LEX):	bminor.placeheld.$(LEX)
 	@echo "Substituting placeholders for bminor.$(LEX)..."
 	@cp $< $@
-	@sed -i 's|<keyword_rules_placeholder>|$(shell ./keyword_list_to_regex_list.sh keywords.txt)|' $@
-	@sed -i 's|<literal_token_rules_placeholder>|$(shell ./literal_token_list_to_regex_list.sh literal_tokens.txt)|' $@
+	@sed -i 's|<keyword_rules_placeholder>|$(shell ./scripts/keyword_list_to_regex_list.sh keywords.txt)|' $@
+	@sed -i 's|<literal_token_rules_placeholder>|$(shell ./scripts/literal_token_list_to_regex_list.sh literal_tokens.txt)|' $@
 
-bminor.$(YACC):		bminor.$(YACC).placeheld
+bminor.$(YACC):		bminor.placeheld.$(YACC) $(AST_COMP)
 	@echo "Substituting placeholders for bminor.$(YACC)..."
 	@cp $< $@
-	@sed -i 's|<keywords_placeholder>|$(shell ./reformat_space_list.sh -t -u -f keywords.txt)|' $@
-	@sed -i 's|<literal_tokens_placeholder>|$(shell ./reformat_space_list.sh -t -l -f literal_tokens.txt)|' $@
+	@sed -i 's|<keywords_placeholder>|$(shell ./scripts/reformat_space_list.sh -t -u -f keywords.txt)|' $@
+	@sed -i 's|<literal_tokens_placeholder>|$(shell ./scripts/reformat_space_list.sh -t -l -f literal_tokens.txt)|' $@
 
 bminor_parse.c:	bminor.$(YACC)
 	@echo "Generating parser $@..."
@@ -63,7 +64,7 @@ bminor_scan.c:	bminor.$(LEX) token.h
 	@echo "Generating scanner $@..."
 	$(LEX) $(LEXFLAGS) -o $@ $<
 
-main.c:		main.c.placeheld token.h bminor.bison
+main.c:		main.placeheld.c token.h bminor.bison 
 	@echo "Substituting placeholders for main.c..."
 	@cp $< $@
-	@sed -i 's|<token_str_arr_placeholder>|$(shell ./bison_to_token_arr.sh bminor.bison)|' $@
+	@sed -i 's|<token_str_arr_placeholder>|$(shell ./scripts/bison_to_token_arr.sh bminor.bison)|' $@
