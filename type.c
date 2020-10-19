@@ -30,7 +30,7 @@ void type_print(struct type *t){
             fputs(" ", stdout);
             type_print(t->subtype);
             fputs(" (", stdout);
-            decl_print_list(t->params, 0, 2, ", ");
+            decl_print_list(t->params, 0, "", ", ");
             fputs(")", stdout);
             break;
         default:

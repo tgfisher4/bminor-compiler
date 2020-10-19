@@ -1,16 +1,8 @@
 a: array[40] array[40] integer;
+f: function array [10] function array [10] integer () ();
+g: function function integer () ();
 main: function integer(argc: integer, argv: array [] string) = {
     argv[argc - 1][0];
-
-    if ("I say to you tomorrow"){
-        {
-            "take my hand, child, come with me";
-        }
-    }
-    else{
-        "It's to a castle I will take you";
-    }
-
-    return "Where what's to be they say will be";
-
+    f[5]()[16];
+    g()();
 }

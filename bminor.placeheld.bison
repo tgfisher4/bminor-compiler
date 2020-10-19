@@ -253,11 +253,11 @@ expr4 : expr4 CARET expr3
 
 /* unary operators: + - ! */
 expr3 : PLUS expr3
-      { $$ = expr_create_oper(EXPR_ADD_ID, $2, NULL); }
+      { $$ = expr_create_oper(EXPR_ADD_ID, NULL, $2); }
       | MINUS expr3
-      { $$ = expr_create_oper(EXPR_ADD_INV, $2, NULL); }
+      { $$ = expr_create_oper(EXPR_ADD_INV, NULL, $2); }
       | NOT expr3
-      { $$ = expr_create_oper(EXPR_NOT, $2, NULL); }
+      { $$ = expr_create_oper(EXPR_NOT, NULL, $2); }
       | expr2
       { $$ = $1; }
       ;

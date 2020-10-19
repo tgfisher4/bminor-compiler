@@ -35,6 +35,9 @@ struct expr * expr_create(expr_t expr_type, union expr_data *data){
 
 struct expr * expr_create_oper( expr_t expr_type, struct expr *left_arg, struct expr* right_arg ){
     union expr_data *d = malloc(sizeof(*d));
+    if (!d) return NULL;
+    // if unary with empy right (!, +, -), create an empty placeholder
+    if (!left_arg) left_arg = expr_create_empty();
     left_arg->next = right_arg;
     d->operator_args = left_arg;
     return expr_create(expr_type, d);
@@ -150,6 +153,10 @@ void expr_print(struct expr *e){
             /* this printing code can be made more elegant if you allow the AST to have empty nodes
              * However, I considered having an AST which represents exactly the program to run to be more desirable than more elegant printing code
             */
+            expr_print_subexpr(e->data->operator_args, e->kind);
+            fputs(oper_to_str(e->kind), stdout);
+            expr_print_subexpr(e->data->operator_args->next, e->kind);
+            /*
             // binary
             if (e->data->operator_args->next) {
                 expr_print_subexpr(e->data->operator_args, e->kind);
@@ -166,11 +173,14 @@ void expr_print(struct expr *e){
                     expr_print_subexpr(e->data->operator_args, e->kind);
                 }
             }
+            */
             break;
     }
 }
 
 void expr_print_subexpr(struct expr *e, expr_t parent_oper){ 
+    // may be null: unary operators with empty right (represented by null instead of empty)
+    if (!e || e->kind == EXPR_EMPTY) return;
     bool wrap_in_parens = parent_oper && oper_precedence(parent_oper) > oper_precedence(e->kind);
     if (wrap_in_parens) fputs("(", stdout);
     expr_print(e);

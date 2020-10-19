@@ -55,29 +55,25 @@ int main(int argc, char **argv){
 
     /* scan */
     if (scan_file(to_compile, stages[SCAN])){
-        printf("scan unsuccessful\n"); return EXIT_FAILURE; 
-    } else {
-        //printf("scan successful\n\n");
+        puts("scan unsuccessful");
+        return EXIT_FAILURE;
     }
-    /*
-    if (stages[SCAN]) {
-        if (scan_file(to_compile)) { printf ("scan unsuccessful\n"); return EXIT_FAILURE; }
-        else printf("scan successful\n\n");
-    }
-    */
+    else if (stages[SCAN])
+        puts("scan successful");
 
     /* parse */
     if (stages[PARSE] || stages[PPRINT]) {
-        if (parse_file(to_compile)) { printf("parse unsuccessful\n"); return EXIT_FAILURE; }
-        //else printf("parse successful\n\n");
+        if (parse_file(to_compile)) {
+            puts("parse unsuccessful");
+            return EXIT_FAILURE;
+        }
+        else if (stages[PARSE])
+            puts("parse successful");
     }
     
     /* print */
     if (stages[PPRINT]) print_ast(ast);
     puts("");
-
-    //if (run_all)    printf("compilation successful\n");
-    //else            printf("%s successful\n", argv[1]+1);
 
     return EXIT_SUCCESS;
 }
@@ -106,7 +102,7 @@ void process_cl_args(int argc, char **argv, bool *stages, char **to_compile){
     }
 }
 
-void print_ast(struct decl *ast){ decl_print_list(ast, 0, ';', "\n"); }
+void print_ast(struct decl *ast){ decl_print_list(ast, 0, ";", "\n"); }
 
 int parse_file(char *filename){
     yyin = fopen(filename, "r");
