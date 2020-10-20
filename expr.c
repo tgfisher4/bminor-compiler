@@ -10,23 +10,16 @@ void print_clean_str_lit(const char *s);
 void print_clean_char_lit(char c);
 char *clean_char(char c, char delim);
 
-//struct expr * expr_create(expr_t expr_type, struct expr *args, struct expr* right_arg, union expr_data *data){
 struct expr * expr_create(expr_t expr_type, union expr_data *data){
     struct expr *e = malloc(sizeof(*e));
-    if (!e) return NULL;
+    if (!e){
+        puts("Could not allocate expr memory, exiting...");
+        exit(EXIT_FAILURE);
+    }
 
     e->kind = expr_type;
-    //e->args = args;
-    //e->left_arg  = left_arg;
-    //e->right_arg = right_arg;
-    // is this a good union application? have a data union holding int or str?
+    // this seemed to me a good union application since the data values are mutually exclusive
     e->data = data;
-    /*
-    if ( str_data || int_data ) e->data = malloc(sizeof(e->data));
-    if (!e->data) return null;
-    if (str_data) e->data->str_data = str_data;
-    if (int_data) e->data->int_data = int_data;
-    */
     e->next = NULL;
     e->symbol = NULL;
 
@@ -150,38 +143,21 @@ void expr_print(struct expr *e){
             break;
         default:
             //operators
-            /* this printing code can be made more elegant if you allow the AST to have empty nodes
-             * However, I considered having an AST which represents exactly the program to run to be more desirable than more elegant printing code
-            */
+            /* this printing code is made elegant by allowing the AST to have empty nodes */
             expr_print_subexpr(e->data->operator_args, e->kind);
             fputs(oper_to_str(e->kind), stdout);
             expr_print_subexpr(e->data->operator_args->next, e->kind);
-            /*
-            // binary
-            if (e->data->operator_args->next) {
-                expr_print_subexpr(e->data->operator_args, e->kind);
-                fputs(oper_to_str(e->kind), stdout);
-                expr_print_subexpr(e->data->operator_args->next, e->kind);
-            }
-            // unary
-            else{
-                if (e->kind == EXPR_POST_DEC || e->kind == EXPR_POST_INC){
-                    expr_print_subexpr(e->data->operator_args, e->kind);
-                    fputs(oper_to_str(e->kind), stdout);
-                } else {
-                    fputs(oper_to_str(e->kind), stdout);
-                    expr_print_subexpr(e->data->operator_args, e->kind);
-                }
-            }
-            */
             break;
     }
 }
 
 void expr_print_subexpr(struct expr *e, expr_t parent_oper){ 
-    // may be null: unary operators with empty right (represented by null instead of empty)
     if (!e || e->kind == EXPR_EMPTY) return;
-    bool wrap_in_parens = parent_oper && oper_precedence(parent_oper) > oper_precedence(e->kind);
+    // to see relevance, consider the cases | (3+4)*5 | a - -b | - -(a - - b) |
+    bool wrap_in_parens = oper_precedence(parent_oper) > oper_precedence(e->kind)
+        || (parent_oper == e->kind && (parent_oper == EXPR_ADD_INV || parent_oper == EXPR_ADD_ID))
+        || (parent_oper == EXPR_ADD && e->kind == EXPR_ADD_ID)
+        || (parent_oper == EXPR_SUB && e->kind == EXPR_ADD_INV) ;
     if (wrap_in_parens) fputs("(", stdout);
     expr_print(e);
     if (wrap_in_parens) fputs(")", stdout);
@@ -197,6 +173,10 @@ void expr_print_list(struct expr *e, char *delim){
 
 char *clean_char(char c, char delim){
     char *clean = malloc(3);
+    if(!clean){
+        puts("Failed to allocate clean char memory, exiting...");
+        exit(EXIT_FAILURE);
+    }
     char *writer = clean;
     switch(c){
         case '\n':
@@ -232,7 +212,10 @@ void print_clean_char_lit(char c){
 void print_clean_str_lit(const char *s){
     // we'll need at most twice the characters, plus delimeters, plus nul
     char *clean = malloc(2 * strlen(s) + 3);
-    if (!clean) return;
+    if(!clean){
+        puts("Failed to allocate clean char memory, exiting...");
+        exit(EXIT_FAILURE);
+    }
     clean[0] = '"';
     clean[1] = '\0';
     for (const char *reader = s; *reader; reader++){

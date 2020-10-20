@@ -1,0 +1,2 @@
+// decls are not exprs
+s: string = (t: string = "str");

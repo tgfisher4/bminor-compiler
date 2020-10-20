@@ -12,6 +12,8 @@ main: function integer () = {
         for(;;i){
         if (cond){print;
         } else if(cond2) return a()()[0](5)[18];
+            else if (cond3)return x;
+            else print a;
         }}}
     }
 }

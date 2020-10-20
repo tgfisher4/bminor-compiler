@@ -13,3 +13,9 @@ cd parser_tests
 ./run_all_tests.sh
 echo "=========================================="
 cd ..
+
+echo "Printer tests..."
+cd printer_tests
+./run_all_tests.sh
+echo "=========================================="
+cd ..

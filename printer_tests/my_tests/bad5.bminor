@@ -1,0 +1,4 @@
+f: function void() = {
+    // extra syntactically sweet operators not permitted
+    a += 10;
+}

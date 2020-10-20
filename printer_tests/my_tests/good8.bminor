@@ -1,0 +1,17 @@
+main: function integer () = {
+    // else-if ladder
+    if(f) a; else if(g) b; else if (h) c; else if (i) d; else if (j) e; else k;
+
+    // for ladder
+    for(;;) for(;;) for(;;) x;
+
+    // brace ladder
+    {{{
+    }}}
+
+    // for {} ladder
+    for(;;) { for(;;) { for(;;) {}}}
+
+    // else-if {} ladder
+    if(a) { if(b) { if(c) { if(d) { if(e) x; } } } }
+}

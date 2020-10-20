@@ -6,7 +6,10 @@ extern void indent(int indents);
 
 struct decl * decl_create(char *ident, struct type *type, struct expr *init_value, struct stmt *func_body){
     struct decl *d = malloc(sizeof(*d));
-    if(!d) { return NULL; }
+    if(!d) {
+        puts("Could not allocate decl memory, exiting...");
+        exit(EXIT_FAILURE);
+    }
 
     d->ident         = ident;
     d->type          = type;

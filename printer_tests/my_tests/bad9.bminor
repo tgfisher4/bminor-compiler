@@ -1,0 +1,4 @@
+f:function void() = {
+    // ';' is not valid statement, so this isn't an infinite loop
+    for(;;);
+}

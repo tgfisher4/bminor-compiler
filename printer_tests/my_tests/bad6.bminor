@@ -1,0 +1,5 @@
+f: function void () = {
+    i: integer;
+    // type must be identifiable at runtime
+    x: get_type(i);
+}

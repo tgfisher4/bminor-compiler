@@ -4,7 +4,10 @@
 
 struct type *type_create(type_t kind, struct type *subtype, struct expr *arr_sz, struct decl *params){
     struct type *t = malloc(sizeof(*t));
-    if (!t) return NULL;
+    if( !t ) {
+        puts("Failed to allocate space for type, exiting...");
+        exit(EXIT_FAILURE);
+    }
 
     t->kind     = kind;
     t->subtype  = subtype;
