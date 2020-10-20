@@ -1,0 +1,6 @@
+f: function void() = {
+    // no while loop in bminor
+    while(true){
+        print;
+    }
+}

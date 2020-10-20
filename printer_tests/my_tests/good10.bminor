@@ -1,0 +1,5 @@
+main: function integer () = {
+    if( cond ){ c: char = 'x'; print c; }
+    if (cond) c:char = 'x';
+    print c;
+}

@@ -6,8 +6,8 @@ factorial: function integer ( x: integer ) = {
 
 main: function integer ( argc: integer, argv: array [] string ) = {
 
-    //print "Hello, world!\n";
-    //x: int = 4;
-    //print x, " factorial is ", factorial(x), "\n";
-    //return -0;
+    print "Hello, world!\n";
+    x: integer = 4;
+    print x, " factorial is ", factorial(x), "\n";
+    return -0;
 }

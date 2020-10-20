@@ -1,0 +1,6 @@
+f:function void() = {
+    // if does not default to true when no condition given
+    if(){
+        body;
+    }
+}

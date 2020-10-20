@@ -40,12 +40,14 @@ union expr_data {
     /* mutually exclusive data fields involved in an expression
      * allows the access of different fields by intuitive names
      *  - ident_name: identifier name
-     *  - str_literal: string literal data
-     *  - int_literal: integer literal data
-     *  - char_literal: char literal data
-     *  - bool_literal: boolean literal data
-     *  - arr_literal: array literal elements as a linked list
+     *  - str_data: string literal data
+     *  - int_data: integer literal data
+     *  - char_data: char literal data
+     *  - bool_data: boolean literal data
+     *  - arr_elements: array literal elements as a linked list
      *  - func_and_args: function arguments as a linked list. Head of list is the expression resulting in the function being called
+     *  - operator_args: operator arguments as a linked list. Each has exactly two nodes. One of the two unary operator's nodes is empty (depending on which side of the operator the argument appears (! vs ++)
+     *  Once I decided to use a union I might as well define fields of the same type that have more intuitive names: I never store anything extra in my union as a reuslt (which was my qualm with the struct with many NULL fields: felt like it could be simplified)
     */
     const char *ident_name;
     const char *str_data;
@@ -60,15 +62,6 @@ union expr_data {
 struct expr {
 	/* used by all kinds of exprs */
 	expr_t kind;
-    // allow expression/operator to have an arbitrary number of arguments
-    //struct expr *args;
-	//struct expr *left_arg;
-	//struct expr *right_arg;
-
-	/* used by various leaf exprs */
-	//const char *name;
-	//int literal_value;
-	//const char * string_literal;
     union expr_data *data;
 	struct symbol *symbol;
     struct expr *next;

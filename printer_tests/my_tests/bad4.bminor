@@ -1,0 +1,8 @@
+// this isn't a scripting language
+if (__name__ == "__main__"){
+    main();
+}
+
+main: function integer () = {
+    return 1;
+}

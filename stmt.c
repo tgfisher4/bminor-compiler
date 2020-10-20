@@ -6,7 +6,10 @@ extern void indent(int indents);
 
 struct stmt * stmt_create( stmt_t kind, struct decl *decl, struct expr *expr_list, struct stmt *body){
     struct stmt *s = malloc(sizeof(*s));
-    if (!s) return NULL;
+    if (!s){
+        puts("Failed to allocate space for stmt, exiting...");
+        exit(EXIT_FAILURE);
+    }
 
     s->kind = kind;
     s->decl = decl;
@@ -34,7 +37,7 @@ void stmt_print(struct stmt *s, int indents, bool indent_first){
             fputs(";", stdout);
             break;
         case STMT_IF_ELSE:
-            fputs("if ( ", stdout);
+            fputs("if( ", stdout);
             expr_print(s->expr_list);
             fputs(" )", stdout);
             bool body_is_not_block = !(s->body->kind == STMT_BLOCK);
@@ -50,7 +53,7 @@ void stmt_print(struct stmt *s, int indents, bool indent_first){
             }
             break;
         case STMT_FOR:
-            fputs("for ( ", stdout);
+            fputs("for( ", stdout);
             expr_print_list(s->expr_list, " ; ");
             fputs(" )", stdout);
             body_is_not_block = !(s->body->kind == STMT_BLOCK);

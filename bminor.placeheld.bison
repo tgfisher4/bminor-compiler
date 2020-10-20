@@ -140,7 +140,7 @@ non_dangling_if : IF L_PAR expr R_PAR non_dangling_stmt ELSE non_dangling_stmt
 
 for_stmt : FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
          { if(!$3) $3 = expr_create_empty();
-           if(!$5) $5 = expr_create_empty();
+           if(!$5) $5 = expr_create_boolean_literal(true);
            if(!$7) $7 = expr_create_empty();
 
            $3->next = $5;
@@ -152,7 +152,7 @@ for_stmt : FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR stmt
 
 non_dangling_for : FOR L_PAR maybe_expr S_COL maybe_expr S_COL maybe_expr R_PAR non_dangling_stmt
                  { if(!$3) $3 = expr_create_empty();
-                   if(!$5) $5 = expr_create_empty();
+                   if(!$5) $5 = expr_create_boolean_literal(true);
                    if(!$7) $7 = expr_create_empty();
 
                    $3->next = $5;
@@ -264,9 +264,9 @@ expr3 : PLUS expr3
 
 /* unary postfix decrement/increment */
 expr2 : expr2 DEC
-      { $$ = expr_create_oper(EXPR_POST_DEC, $1, NULL); }
+      { $$ = expr_create_oper(EXPR_POST_DEC, $1, expr_create_empty()); }
       | expr2 INC
-      { $$ = expr_create_oper(EXPR_POST_INC, $1, NULL); }
+      { $$ = expr_create_oper(EXPR_POST_INC, $1, expr_create_empty()); }
       | expr1
       { $$ = $1; }
       ;
@@ -295,12 +295,12 @@ atom : ident
      { $$ = expr_create_boolean_literal(true); }
      | FALSE
      { $$ = expr_create_boolean_literal(false); }
-     | arr_lit /* should this be here or in decl? technically you can only have an array literal like this in a declaration, but I like the general idea of having an array literal that, when used, creates a temporary array for you to use in your expression */
+     | arr_lit /* should this be here or in decl? technically you can only have an array literal like this in a declaration, but I like the general idea of having an array literal that, when used, creates a temporary array for you to use in your expression. Either way, we can catch this during typechecking. */
      { $$ = $1; }
      ;
 
 ident: IDENT
-     { char *s = strdup(yytext); if (!s){ fprintf(stderr, "Failed to allocate space for duping identifier.\n"); return -1; } $$ = s; }
+     { char *s = strdup(yytext); if (!s){ fprintf(stderr, "Failed to allocate space for duping identifier.\n"); exit(EXIT_FAILURE);} $$ = s; }
      ;
 
 
@@ -343,31 +343,3 @@ int yyerror( char *str )
     return 0;
 }
 
-/*
-char *clean_string(char *string, char delim){
-
-    // need at most strlen(yytext) + 1 (\0) - 2 (skip delimeters) bytes
-    char *to_return = malloc(strlen(yytext)-1); 
-    if (!to_return){
-        fprintf(stderr, "Failed to allocate space for new string in clean_string");
-        return NULL;
-    }
-
-    // writer holds the next char in to_return to write to
-    char *writer = to_return;
-    for (char *reader = string; *reader; ++reader, ++writer){
-        if (*reader == '\\'){
-            switch(*(++reader)){
-                case 'n':           *writer = '\n';    break;
-                case '0':           *writer = '\0';    break;
-                default:            *writer = *reader; break;
-            }
-        }
-        else if (*reader == delim)   writer--;   // keeps write in place, skipping 'delim'
-        else                        *writer = *reader;
-    }
-    *writer = '\0'; 
-
-    return to_return;
-}
-*/

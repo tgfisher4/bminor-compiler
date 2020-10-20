@@ -1,0 +1,4 @@
+f:function void() = {
+    // int is not a minor type
+    i:int;
+}
