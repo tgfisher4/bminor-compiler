@@ -264,9 +264,9 @@ expr3 : PLUS expr3
 
 /* unary postfix decrement/increment */
 expr2 : expr2 DEC
-      { $$ = expr_create_oper(EXPR_POST_DEC, $1, expr_create_empty()); }
+      { $$ = expr_create_oper(EXPR_POST_DEC, $1, NULL); }
       | expr2 INC
-      { $$ = expr_create_oper(EXPR_POST_INC, $1, expr_create_empty()); }
+      { $$ = expr_create_oper(EXPR_POST_INC, $1, NULL); }
       | expr1
       { $$ = $1; }
       ;

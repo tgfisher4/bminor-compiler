@@ -22,7 +22,7 @@ clean:
 	@rm -f token.h
 	@rm -f *.o
 	@rm -f bminor.c bminor.$(LEX) bminor.$(YACC) bminor_parse.c bminor_scan.c
-	@rm -f main.c
+	@rm -f main.c expr.c type.c
 	@rm -f bminor_parse.output
 	@rm -f *_tests/*_tests/*.out
 	@rm -f valgrind-out.txt
@@ -53,6 +53,20 @@ bminor.$(YACC):		bminor.placeheld.$(YACC) $(AST_COMP)
 	@cp $< $@
 	@sed -i 's|<keywords_placeholder>|$(shell ./scripts/reformat_space_list.sh -t -u -f keywords.txt)|' $@
 	@sed -i 's|<literal_tokens_placeholder>|$(shell ./scripts/reformat_space_list.sh -t -l -f literal_tokens.txt)|' $@
+
+expr.c:		expr.placeheld.c
+	@echo "Substituting placeholders for expr.c..."
+	@cp $< $@
+	@sed -i 's|<oper_str_arr_placeholder>|$(shell ./scripts/expr_enum_to_oper_str_list.sh)|' $@
+	@sed -i 's|<first_oper_placeholder>|$(shell ./scripts/get_end_expr_enum.sh -f)|g' $@
+	@sed -i 's|<last_oper_placeholder>|$(shell ./scripts/get_end_expr_enum.sh -l)|g' $@
+
+type.c:		type.placeheld.c
+	@echo "Substituting placeholders for type.c..."
+	@cp $< $@
+	@sed -i 's|<type_t_to_str_arr_placeholder>|$(shell ./scripts/type_enum_to_type_t_str_list.sh)|' $@
+	@sed -i 's|<first_type_placeholder>|$(shell ./scripts/get_end_type_enum.sh)|g' $@
+
 
 bminor_parse.c:	bminor.$(YACC)
 	@echo "Generating parser $@..."

@@ -27,10 +27,13 @@ struct expr * expr_create(expr_t expr_type, union expr_data *data){
 }
 
 struct expr * expr_create_oper( expr_t expr_type, struct expr *left_arg, struct expr* right_arg ){
+    /* */
     union expr_data *d = malloc(sizeof(*d));
     if (!d) return NULL;
-    // if unary with empy right (!, +, -), create an empty placeholder
-    if (!left_arg) left_arg = expr_create_empty();
+    // uniform interface for unary operators: pass as NULL whichever operand is not used
+    // fill in with empty placeholders on either side so that we have two operands no matter the operator
+    if (!left_arg)  left_arg  = expr_create_empty();
+    if (!right_arg) right_arg = expr_create_empty();
     left_arg->next = right_arg;
     d->operator_args = left_arg;
     return expr_create(expr_type, d);
@@ -91,11 +94,13 @@ struct expr *expr_create_empty(){
 }
 
 char *oper_to_str(expr_t t){
-    char *strs[] = {"=",
-                    "||", "&&", "<", "<=", ">", ">=", "==", "!=",
-                    "+", "-", "*", "/", "%", "^", "!",
-                    "+", "-", "++", "--"};
-    return (t < EXPR_ASGN || t > EXPR_POST_DEC) ? "" : strs[t - EXPR_ASGN];
+    //char *strs[] = {"=",
+    //                "||", "&&", "<", "<=", ">", ">=", "==", "!=",
+    //                "+", "-", "*", "/", "%", "^", "!",
+    //                "+", "-", "++", "--"};
+    //return (t < EXPR_ASGN || t > EXPR_POST_DEC) ? "" : strs[t - EXPR_ASGN];
+    char *strs[] = <oper_str_arr_placeholder>;
+    return (t < <first_oper_placeholder> || t > <last_oper_placeholder>) ? "" : strs[t - <first_oper_placeholder>];
 }
 
 void expr_print(struct expr *e){

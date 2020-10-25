@@ -6,26 +6,26 @@
 
 typedef enum {
     EXPR_EMPTY,
-    EXPR_ASGN,
-    EXPR_OR,
-    EXPR_AND,
-    EXPR_LT,
-    EXPR_LT_EQ,
-    EXPR_GT,
-    EXPR_GT_EQ,
-	EXPR_EQ,
-	EXPR_NOT_EQ,
-    EXPR_ADD,
-    EXPR_SUB,
-	EXPR_MUL,
-	EXPR_DIV,
-    EXPR_MOD,
-    EXPR_EXP,
-    EXPR_NOT,
-    EXPR_ADD_ID,
-    EXPR_ADD_INV,
-    EXPR_POST_INC,
-    EXPR_POST_DEC,
+    EXPR_ASGN,      // " = "
+    EXPR_OR,        // " || "
+    EXPR_AND,       // " && "
+    EXPR_LT,        // " < "
+    EXPR_LT_EQ,     // " <= "
+    EXPR_GT,        // " > "
+    EXPR_GT_EQ,     // " >= "
+	EXPR_EQ,        // " == "
+	EXPR_NOT_EQ,    // " != "
+    EXPR_ADD,       // " + "
+    EXPR_SUB,       // " - "
+	EXPR_MUL,       // " * "
+	EXPR_DIV,       // " / "
+    EXPR_MOD,       // " % "
+    EXPR_EXP,       // " ^ "
+    EXPR_NOT,       // "!"
+    EXPR_ADD_ID,    // "+"
+    EXPR_ADD_INV,   // "-"
+    EXPR_POST_INC,  // "++"
+    EXPR_POST_DEC,  // "--"
     EXPR_ARR_ACC,
     EXPR_ARR_LIT,
     EXPR_FUNC_CALL,

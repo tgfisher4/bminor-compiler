@@ -20,8 +20,10 @@ struct type *type_create(type_t kind, struct type *subtype, struct expr *arr_sz,
 void type_print(struct type *t){
     if (!t) return;
 
-    char *kind_to_str[] = {"void", "boolean", "char", "integer", "string", "array", "function"};
-    printf("%s", kind_to_str[t->kind - TYPE_VOID]);
+    //char *kind_to_str[] = {"void", "boolean", "char", "integer", "string", "array", "function"};
+    //printf("%s", kind_to_str[t->kind - TYPE_VOID]);
+    char *type_t_to_str[] = <type_t_to_str_arr_placeholder>;
+    printf("%s", type_t_to_str[t->kind - <first_type_placeholder>]);
     switch(t->kind){
         case TYPE_ARRAY:
             fputs(" [", stdout);
