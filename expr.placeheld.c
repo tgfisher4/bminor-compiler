@@ -165,15 +165,16 @@ void expr_print_subexpr(struct expr *e, expr_t parent_oper, bool right_oper){
     bool commutativities[] = <commutativities_arr_placeholder>;
     // false = 0, hence left (0 to left of 1 on number line)
     bool associativities[] = <associativities_arr_placeholder>;
+
     // to see relevance, consider the cases | (3+4)*5 | a - -b | - -(a - - b) |
     bool wrap_in_parens = oper_precedence(parent_oper) > oper_precedence(e->kind)
         || (parent_oper == e->kind && (parent_oper == EXPR_ADD_INV || parent_oper == EXPR_ADD_ID))
         || (parent_oper == EXPR_ADD && e->kind == EXPR_ADD_ID)
         || (parent_oper == EXPR_SUB && e->kind == EXPR_ADD_INV)
         || (parent_oper == e->kind
-                && parent_oper - <first_oper_placeholder> + 1 < sizeof(commutativities)/sizeof(*commutativities)
-                && !commutativities[parent_oper - <first_oper_placeholder> + 1]
-                && associativities[parent_oper - <first_oper_placeholder> + 1] != right_oper);
+                && parent_oper - <first_oper_placeholder> < sizeof(commutativities)/sizeof(*commutativities)
+                && !commutativities[parent_oper - <first_oper_placeholder>]
+                && associativities[parent_oper - <first_oper_placeholder>] != right_oper);
     if (wrap_in_parens) fputs("(", stdout);
     expr_print(e);
     if (wrap_in_parens) fputs(")", stdout);
