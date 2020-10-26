@@ -9,7 +9,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-enum=$(cat expr.h | grep -A1000 'typedef enum {' | grep -B1000 '} expr_t;' | grep '// "')
+enum=$(cat expr.h | grep -A1000 'typedef enum {' | grep -B1000 '} expr_t;' | grep -E '//.*"')
 if [ $last -eq 1 ]; then
     echo "$enum" | tail -n 1 | cut -d ',' -f 1
 else

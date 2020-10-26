@@ -5,35 +5,36 @@
 #include <stdbool.h>
 
 typedef enum {
-    EXPR_EMPTY,
-    EXPR_ASGN,      // " = "
-    EXPR_OR,        // " || "
-    EXPR_AND,       // " && "
-    EXPR_LT,        // " < "
-    EXPR_LT_EQ,     // " <= "
-    EXPR_GT,        // " > "
-    EXPR_GT_EQ,     // " >= "
-	EXPR_EQ,        // " == "
-	EXPR_NOT_EQ,    // " != "
-    EXPR_ADD,       // " + "
-    EXPR_SUB,       // " - "
-	EXPR_MUL,       // " * "
-	EXPR_DIV,       // " / "
-    EXPR_MOD,       // " % "
-    EXPR_EXP,       // " ^ "
-    EXPR_NOT,       // "!"
-    EXPR_ADD_ID,    // "+"
-    EXPR_ADD_INV,   // "-"
-    EXPR_POST_INC,  // "++"
-    EXPR_POST_DEC,  // "--"
-    EXPR_ARR_ACC,
-    EXPR_ARR_LIT,
-    EXPR_FUNC_CALL,
-    EXPR_IDENT,
-    EXPR_INT_LIT,
-    EXPR_STR_LIT,
-    EXPR_CHAR_LIT,
-    EXPR_BOOL_LIT
+    /* EXPR_NAME       @ precedence @   commutative? @  associativity @   string  @ */
+    EXPR_EMPTY,     // @    11      @                @                @           @
+    EXPR_ASGN,      // @    1       @   no           @   right        @   " = "   @
+    EXPR_OR,        // @    2       @   yes          @   left         @   " || "  @
+    EXPR_AND,       // @    3       @   yes          @   left         @   " && "  @
+    EXPR_LT,        // @    4       @   yes          @   left         @   " < "   @
+    EXPR_LT_EQ,     // @    4       @   yes          @   left         @   " <= "  @
+    EXPR_GT,        // @    4       @   yes          @   left         @   " > "   @
+    EXPR_GT_EQ,     // @    4       @   yes          @   left         @   " >= "  @
+	EXPR_EQ,        // @    4       @   yes          @   left         @   " == "  @
+	EXPR_NOT_EQ,    // @    4       @   yes          @   left         @   " != "  @
+    EXPR_ADD,       // @    5       @   yes          @   left         @   " + "   @
+    EXPR_SUB,       // @    5       @   no           @   left         @   " - "   @  
+	EXPR_MUL,       // @    6       @   yes          @   left         @   " * "   @
+	EXPR_DIV,       // @    6       @   no           @   left         @   " / "   @ 
+    EXPR_MOD,       // @    6       @   no           @   left         @   " % "   @ 
+    EXPR_EXP,       // @    7       @   no           @   left         @   " ^ "   @ 
+    EXPR_NOT,       // @    8       @                @                @   "!"     @  
+    EXPR_ADD_ID,    // @    8       @                @                @   "+"     @
+    EXPR_ADD_INV,   // @    8       @                @                @   "-"     @
+    EXPR_POST_INC,  // @    9       @                @                @   "++"    @
+    EXPR_POST_DEC,  // @    9       @                @                @   "--"    @
+    EXPR_ARR_ACC,   // @    10      @                @                @           @ 
+    EXPR_ARR_LIT,   // @    10      @                @                @           @
+    EXPR_FUNC_CALL, // @    10      @                @                @           @
+    EXPR_IDENT,     // @    10      @                @                @           @
+    EXPR_INT_LIT,   // @    10      @                @                @           @
+    EXPR_STR_LIT,   // @    10      @                @                @           @
+    EXPR_CHAR_LIT,  // @    10      @                @                @           @
+    EXPR_BOOL_LIT   // @    10      @                @                @           @
 } expr_t;
 
 union expr_data {

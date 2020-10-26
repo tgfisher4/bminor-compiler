@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
+#include <limits.h>
 
 /* internal helpers */
 int oper_precedence(expr_t);
-void expr_print_subexpr(struct expr *e, expr_t parent_oper);
+void expr_print_subexpr(struct expr *e, expr_t parent_oper, bool right_oper);
 void print_clean_str_lit(const char *s);
 void print_clean_char_lit(char c);
 char *clean_char(char c, char delim);
@@ -149,20 +151,30 @@ void expr_print(struct expr *e){
         default:
             //operators
             /* this printing code is made elegant by allowing the AST to have empty nodes */
-            expr_print_subexpr(e->data->operator_args, e->kind);
+            expr_print_subexpr(e->data->operator_args, e->kind, false);
             fputs(oper_to_str(e->kind), stdout);
-            expr_print_subexpr(e->data->operator_args->next, e->kind);
+            expr_print_subexpr(e->data->operator_args->next, e->kind, true);
             break;
     }
 }
 
-void expr_print_subexpr(struct expr *e, expr_t parent_oper){ 
+void expr_print_subexpr(struct expr *e, expr_t parent_oper, bool right_oper){ 
     if (!e || e->kind == EXPR_EMPTY) return;
+
+    // if parent operator is non-commutative and we are the operand opposite the associativy of the operator, wrap in parens ( a - (b - c) | (a = b) = c or (a = &b) = c )
+    bool commutativities[] = <commutativities_arr_placeholder>;
+    // false = 0, hence left (0 to left of 1 on number line)
+    bool associativities[] = <associativities_arr_placeholder>;
+
     // to see relevance, consider the cases | (3+4)*5 | a - -b | - -(a - - b) |
     bool wrap_in_parens = oper_precedence(parent_oper) > oper_precedence(e->kind)
         || (parent_oper == e->kind && (parent_oper == EXPR_ADD_INV || parent_oper == EXPR_ADD_ID))
         || (parent_oper == EXPR_ADD && e->kind == EXPR_ADD_ID)
-        || (parent_oper == EXPR_SUB && e->kind == EXPR_ADD_INV) ;
+        || (parent_oper == EXPR_SUB && e->kind == EXPR_ADD_INV)
+        || (parent_oper == e->kind
+                && parent_oper - <first_oper_placeholder> + 1 < sizeof(commutativities)/sizeof(*commutativities)
+                && !commutativities[parent_oper - <first_oper_placeholder> + 1]
+                && associativities[parent_oper - <first_oper_placeholder> + 1] != right_oper);
     if (wrap_in_parens) fputs("(", stdout);
     expr_print(e);
     if (wrap_in_parens) fputs(")", stdout);
@@ -234,47 +246,8 @@ void print_clean_str_lit(const char *s){
 }
 
 int oper_precedence(expr_t t){
-    //{1, 2, 3, 4, 4, 4, 4, 4, 4, 5, 5, 
-    switch(t){
-        case EXPR_ASGN:
-            return 1;
-        case EXPR_OR:
-            return 2;
-        case EXPR_AND:
-            return 3;
-        case EXPR_LT:
-        case EXPR_LT_EQ:
-        case EXPR_GT:
-        case EXPR_GT_EQ:
-        case EXPR_EQ:
-        case EXPR_NOT_EQ:
-            return 4;
-        case EXPR_ADD:
-        case EXPR_SUB:
-            return 5;
-        case EXPR_MUL:
-        case EXPR_DIV:
-        case EXPR_MOD:
-            return 6;
-        case EXPR_EXP:
-            return 7;
-        case EXPR_NOT:
-        case EXPR_ADD_ID:
-        case EXPR_ADD_INV:
-            return 8;
-        case EXPR_POST_INC:
-        case EXPR_POST_DEC:
-            return 9;
-        case EXPR_ARR_ACC:
-        case EXPR_ARR_LIT:
-        case EXPR_FUNC_CALL:
-        case EXPR_IDENT:
-        case EXPR_INT_LIT:
-        case EXPR_STR_LIT:
-        case EXPR_CHAR_LIT:
-        case EXPR_BOOL_LIT:
-            return 10;
-        default:
-            return 11;
-    }
+    // prevent against unlikely empty expr here
+    if( t == EXPR_EMPTY )   return INT_MAX;
+    int oper_precs[] = <oper_precedences_arr_placeholder>;
+    return oper_precs[t - <first_oper_placeholder>];
 }
