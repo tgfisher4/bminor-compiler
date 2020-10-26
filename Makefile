@@ -27,18 +27,17 @@ clean:
 	@rm -f *_tests/*_tests/*.out
 	@rm -f valgrind-out.txt
 
-bminor: 		main.o bminor_scan.o bminor_parse.o $(AST_COMP) token.h
+bminor: 		    main.o bminor_scan.o bminor_parse.o $(AST_COMP) token.h
 	@echo "Linking bminor..."
 	$(LD) $(LDFLAGS) -o $@ $^
 
-
-#token.h:		token.h.placeheld
+#token.h:		    token.h.placeheld
 #	@echo "Substituting placeholders for token.h..."
 #	@cp $< $@
 #	@sed -i 's|<keywords_placeholder>|$(shell ./reformat_space_list.sh  -u -f keywords.txt)|' $@
 #	@sed -i 's|<literal_tokens_placeholder>|$(shell ./reformat_space_list.sh -f literal_tokens.txt)|' $@
 
-%.o:		%.c 
+%.o:		        %.c 
 	@echo "Compiling $@..."
 	$(CC) $(CFLAGS) -c -o $@ $<
 
@@ -54,7 +53,7 @@ bminor.$(YACC):	bminor.placeheld.$(YACC) $(AST_COMP)
 	@sed -i 's|<keywords_placeholder>|$(shell ./scripts/reformat_space_list.sh -t -u -f keywords.txt)|' $@
 	@sed -i 's|<literal_tokens_placeholder>|$(shell ./scripts/reformat_space_list.sh -t -l -f literal_tokens.txt)|' $@
 
-expr.c:			expr.placeheld.c
+expr.c:			    expr.placeheld.c
 	@echo "Substituting placeholders for expr.c..."
 	@cp $< $@
 	@sed -i 's|<oper_precedences_arr_placeholder>|$(shell ./scripts/parse_expr_t_table.sh -c 1)|' $@
@@ -64,24 +63,23 @@ expr.c:			expr.placeheld.c
 	@sed -i 's|<first_oper_placeholder>|$(shell ./scripts/get_end_expr_enum.sh -f)|g' $@
 	@sed -i 's|<last_oper_placeholder>|$(shell ./scripts/get_end_expr_enum.sh -l)|g' $@
 
-type.c:			type.placeheld.c
+type.c:		      type.placeheld.c
 	@echo "Substituting placeholders for type.c..."
 	@cp $< $@
 	@sed -i 's|<type_t_to_str_arr_placeholder>|$(shell ./scripts/type_enum_to_type_t_str_list.sh)|' $@
 	@sed -i 's|<first_type_placeholder>|$(shell ./scripts/get_end_type_enum.sh)|g' $@
 
-
 bminor_parse.c:	bminor.$(YACC)
 	@echo "Generating parser $@..."
 	$(YACC) $(YACCFLAGS) --defines=token.h --output=$@ $<
 
-token.h:		bminor_parse.c
+token.h:		    bminor_parse.c
 
 bminor_scan.c:	bminor.$(LEX) token.h
 	@echo "Generating scanner $@..."
 	$(LEX) $(LEXFLAGS) -o $@ $<
 
-main.c:			main.placeheld.c token.h bminor.bison 
+main.c:			    main.placeheld.c token.h bminor.bison 
 	@echo "Substituting placeholders for main.c..."
 	@cp $< $@
 	@sed -i 's|<token_str_arr_placeholder>|$(shell ./scripts/bison_to_token_arr.sh bminor.bison)|' $@
