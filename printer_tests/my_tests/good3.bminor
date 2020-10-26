@@ -3,4 +3,17 @@ main: function integer() = {
     x - - x;
     + +(a+ +b);
     + + a;
+    a - (b - c);
+    a - b - c;
+
+    a * b * c;
+    a * (b * c);
+
+    a / (b / c);
+    a % (b % c);
+    a ^ (b ^ c);
+
+    a = b;
+    a = b = c;
+    (a = b) = c;
 }
