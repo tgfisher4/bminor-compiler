@@ -1,7 +1,7 @@
 #ifndef EXPR_H
 #define EXPR_H
 
-//#include "symbol.h"
+#include "symbol.h"
 #include <stdbool.h>
 
 typedef enum {
@@ -82,6 +82,9 @@ struct expr * expr_create_function_call( struct expr *function, struct expr *arg
 struct expr * expr_create_empty();
 
 void expr_print( struct expr *e );
-void expr_print_list( struct expr *e, char *delim);
+void expr_print_list( struct expr *e, char *delim );
+
+struct scope;
+int expr_resolve( struct expr *e, struct scope *sc, bool verbose );
 
 #endif

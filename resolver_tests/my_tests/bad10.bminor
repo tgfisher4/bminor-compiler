@@ -1,0 +1,5 @@
+var: integer;
+var: string; // 1
+var: function void (); // 2
+var: function string () = {var;} // 3
+var: function integer () = {var;} // 4

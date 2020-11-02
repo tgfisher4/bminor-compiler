@@ -19,3 +19,9 @@ cd printer_tests
 ./run_all_tests.sh
 echo "=========================================="
 cd ..
+
+echo "Resolver tests..."
+cd resolver_tests
+./run_all_tests.sh
+echo "=========================================="
+cd ..

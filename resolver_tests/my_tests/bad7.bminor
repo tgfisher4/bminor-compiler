@@ -1,0 +1,9 @@
+main: function void (argc: integer, argv: array [] string) = {
+    f(argv[argc-1]);
+}
+
+f: function void (i: integer, b: boolean, c: char, s: string, a: array [] void) = {
+    {
+        f(argv[argc - i]);
+    }
+}

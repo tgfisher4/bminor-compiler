@@ -1,0 +1,4 @@
+// cannot define two bodies for same function
+main: function void () = { print "hello"; }
+
+main: function function void () () = { print "hello"; }

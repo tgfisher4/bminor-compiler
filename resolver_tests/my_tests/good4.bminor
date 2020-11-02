@@ -1,0 +1,10 @@
+x: integer;
+
+main: function integer() = {
+    x: integer = x;
+    print x;
+    {
+        x: integer = x;
+        print x;
+    }
+}

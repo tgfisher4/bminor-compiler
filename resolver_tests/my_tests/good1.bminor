@@ -1,0 +1,9 @@
+main: function integer(argc: integer, argv: array [] string) = {
+    argv[1];
+    if( argc > 1 ){
+        print "hello, ", argv[1];
+    }
+    else{
+        print "insufficient args";
+    }
+}

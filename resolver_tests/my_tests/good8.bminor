@@ -1,0 +1,6 @@
+// funky declaration in if body
+// dissallow in typecheker
+main: function integer () = {
+    if(main) x: void;
+    return x;
+}

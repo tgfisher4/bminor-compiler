@@ -46,7 +46,9 @@ CHAR_LIT    '([^'\n\\]|\\.)'
 {STRING_LIT}                {
                             last_string_literal = clean_string(yytext, '"');
                             if (!last_string_literal)   return INTERNAL_ERR;
-                            return strlen(last_string_literal) < 256 ? STR_LIT : SCAN_ERR;
+                            if( strlen(last_string_literal) < 256 )  return STR_LIT;
+                            free(last_string_literal);
+                            return SCAN_ERR;
                             }
 {INT_LIT}                   {
                             last_int_literal = atoi(yytext);
@@ -82,8 +84,8 @@ char *clean_string(char *string, char delim){
     // need at most strlen(yytext) + 1 (\0) - 2 (skip delimeters) bytes
     char *to_return = malloc(strlen(yytext)-1); 
     if (!to_return){
-        fprintf(stderr, "Failed to allocate space for new string in clean_string");
-        return NULL;
+        puts("[ERROR|internal] Failed to allocate space for new string in clean_string. Exiting...");
+        exit(EXIT_FAILURE);
     }
 
     // writer holds the next char in to_return to write to

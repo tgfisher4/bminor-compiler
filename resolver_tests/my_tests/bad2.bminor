@@ -1,0 +1,3 @@
+// cannot declare as prototype non-prototype
+main: function void ();
+main: void;

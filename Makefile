@@ -8,6 +8,7 @@ YACC  = bison
 YACCFLAGS = --verbose
 
 AST_COMP = expr.o decl.o stmt.o type.o
+NAME_RES = scope.o symbol.o hash_table.o
 
 TARGETS = bminor
 
@@ -27,7 +28,7 @@ clean:
 	@rm -f *_tests/*_tests/*.out
 	@rm -f valgrind-out.txt
 
-bminor: 		    main.o bminor_scan.o bminor_parse.o $(AST_COMP) token.h
+bminor: 		    main.o bminor_scan.o bminor_parse.o $(AST_COMP) $(NAME_RES) token.h
 	@echo "Linking bminor..."
 	$(LD) $(LDFLAGS) -o $@ $^
 
@@ -37,7 +38,7 @@ bminor: 		    main.o bminor_scan.o bminor_parse.o $(AST_COMP) token.h
 #	@sed -i 's|<keywords_placeholder>|$(shell ./reformat_space_list.sh  -u -f keywords.txt)|' $@
 #	@sed -i 's|<literal_tokens_placeholder>|$(shell ./reformat_space_list.sh -f literal_tokens.txt)|' $@
 
-%.o:		        %.c 
+%.o:		        %.c %.h
 	@echo "Compiling $@..."
 	$(CC) $(CFLAGS) -c -o $@ $<
 
