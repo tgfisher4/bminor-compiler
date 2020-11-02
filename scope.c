@@ -65,7 +65,7 @@ struct symbol *scope_lookup(struct scope *sc, const char *name, bool only_curr){
             ? result
             :   only_curr
                 ? NULL
-                : scope_lookup(sc->next, name, true);
+                : scope_lookup(sc->next, name, false);
 }
 
 struct scope *scope_enter(struct scope *sc){
