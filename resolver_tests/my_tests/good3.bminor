@@ -1,0 +1,9 @@
+main: function char();
+main: function function void () ();
+
+main: function integer(main: function integer ()) = {
+    // should resolve to param 0
+    main();
+}
+
+main: function string();

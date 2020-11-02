@@ -1,0 +1,10 @@
+/*
+main: function integer();
+main: function char();
+*/
+main: function integer() = {
+    return 0;
+    main();
+}
+main: function string();
+//main: function void() = {main;}

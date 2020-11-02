@@ -1,0 +1,17 @@
+EXIT_SUCCESS: integer = 0;
+EXIT_FAILURE: integer = 1;
+
+factorial: function integer (i: integer) = {
+    if (i < 3)  return i;
+    else        return i*factorial(i-1);
+}
+
+main: function integer (argc: integer, argv: array [] string) = {    
+    if(argc < 2){
+        print "I need an argument";
+        return EXIT_FAILURE;
+    }
+    else            print argv[1], " factorial is ", factorial(argv[1]);
+    return EXIT_SUCCESS;
+    
+}

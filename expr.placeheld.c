@@ -1,4 +1,5 @@
 #include "expr.h"
+#include "scope.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,14 +9,14 @@
 /* internal helpers */
 int oper_precedence(expr_t);
 void expr_print_subexpr(struct expr *e, expr_t parent_oper, bool right_oper);
-void print_clean_str_lit(const char *s);
-void print_clean_char_lit(char c);
-char *clean_char(char c, char delim);
+void descape_and_print_str_lit(const char *s);
+void descape_and_print_char_lit(char c);
+char *descape_char(char c, char delim);
 
 struct expr * expr_create(expr_t expr_type, union expr_data *data){
     struct expr *e = malloc(sizeof(*e));
     if (!e){
-        puts("Could not allocate expr memory, exiting...");
+        puts("[ERROR|internal] Could not allocate expr memory, exiting...");
         exit(EXIT_FAILURE);
     }
 
@@ -95,12 +96,35 @@ struct expr *expr_create_empty(){
     return expr_create(EXPR_EMPTY, NULL);
 }
 
+int expr_resolve(struct expr *e, struct scope *sc, bool verbose){
+    if( !e ) return 0;
+
+    int err_count = 0;
+    if( e->kind == EXPR_IDENT){
+        e->symbol = scope_lookup(sc, e->data->ident_name, false);
+        if ( !e->symbol ){
+            printf("[ERROR|resolve] Variable %s used before declaration\n", e->data->ident_name);
+            err_count++;
+        }
+        else if(verbose){
+            printf("Variable %s resolved to ", e->data->ident_name);
+            symbol_print(e->symbol);
+            puts("");
+        }
+    }
+    // if we have arguments, resolve them: operator_args is arbitrary choice here
+    //  - just need to interpret data as expr pointer
+    // my choice to use a union for e->data makes this clunky
+    if( !(e->kind == EXPR_EMPTY    || e->kind == EXPR_IDENT
+       || e->kind == EXPR_INT_LIT  || e->kind == EXPR_STR_LIT
+       || e->kind == EXPR_CHAR_LIT || e->kind == EXPR_BOOL_LIT) )
+        err_count += expr_resolve(e->data->operator_args, sc, verbose);
+
+    err_count += expr_resolve(e->next, sc, verbose);
+    return err_count;
+}
+
 char *oper_to_str(expr_t t){
-    //char *strs[] = {"=",
-    //                "||", "&&", "<", "<=", ">", ">=", "==", "!=",
-    //                "+", "-", "*", "/", "%", "^", "!",
-    //                "+", "-", "++", "--"};
-    //return (t < EXPR_ASGN || t > EXPR_POST_DEC) ? "" : strs[t - EXPR_ASGN];
     char *strs[] = <oper_str_arr_placeholder>;
     return (t < <first_oper_placeholder> || t > <last_oper_placeholder>) ? "" : strs[t - <first_oper_placeholder>];
 }
@@ -110,7 +134,6 @@ void expr_print(struct expr *e){
 
     switch(e->kind){
         case EXPR_EMPTY:
-            //fputs("", stdout);
             break;
         case EXPR_ARR_ACC:
             // expecting exactly two arguments: expression resolving to array and indexing expression
@@ -135,15 +158,11 @@ void expr_print(struct expr *e){
             printf("%d", e->data->int_data);
             break;
         case EXPR_STR_LIT:
-            //TODO: clean string for output (newline -> \n, " -> \", \ -> \\)
             // revrese clean string function from scanner
-            print_clean_str_lit(e->data->str_data);
-            //printf("\"%s\"", e->data->str_data);
+            descape_and_print_str_lit(e->data->str_data);
             break;
         case EXPR_CHAR_LIT:
-            //TODO: clean char for output
-            print_clean_char_lit(e->data->char_data);
-            //printf("%s", print_clean_literal(e->data->char_data));
+            descape_and_print_char_lit(e->data->char_data);
             break;
         case EXPR_BOOL_LIT:
             fputs(e->data->bool_data ? "true" : "false", stdout);
@@ -169,8 +188,9 @@ void expr_print_subexpr(struct expr *e, expr_t parent_oper, bool right_oper){
     // to see relevance, consider the cases | (3+4)*5 | a - -b | - -(a - - b) |
     bool wrap_in_parens = oper_precedence(parent_oper) > oper_precedence(e->kind)
         || (parent_oper == e->kind && (parent_oper == EXPR_ADD_INV || parent_oper == EXPR_ADD_ID))
-        || (parent_oper == EXPR_ADD && e->kind == EXPR_ADD_ID)
-        || (parent_oper == EXPR_SUB && e->kind == EXPR_ADD_INV)
+        // now that I include spaces in my expressions, parentheses are not strictly necessary in this case
+        //|| (parent_oper == EXPR_ADD && e->kind == EXPR_ADD_ID)
+        //|| (parent_oper == EXPR_SUB && e->kind == EXPR_ADD_INV)
         || (parent_oper == e->kind
                 && parent_oper - <first_oper_placeholder> < sizeof(commutativities)/sizeof(*commutativities)
                 && !commutativities[parent_oper - <first_oper_placeholder>]
@@ -188,10 +208,10 @@ void expr_print_list(struct expr *e, char *delim){
     expr_print_list(e->next, delim);
 }
 
-char *clean_char(char c, char delim){
+char *descape_char(char c, char delim){
     char *clean = malloc(3);
     if(!clean){
-        puts("Failed to allocate clean char memory, exiting...");
+        puts("[ERROR|internal] Failed to allocate clean char memory, exiting...");
         exit(EXIT_FAILURE);
     }
     char *writer = clean;
@@ -216,17 +236,16 @@ char *clean_char(char c, char delim){
     return clean;
 }
 
-void print_clean_char_lit(char c){
+void descape_and_print_char_lit(char c){
     char clean[5] = "'";
-    char *clean_c = clean_char(c, '\'');
+    char *clean_c = descape_char(c, '\'');
     strcat(clean, clean_c);
     strcat(clean, "'");
     fputs(clean, stdout);
-    fflush(stdout);
     free(clean_c);
 }
 
-void print_clean_str_lit(const char *s){
+void descape_and_print_str_lit(const char *s){
     // we'll need at most twice the characters, plus delimeters, plus nul
     char *clean = malloc(2 * strlen(s) + 3);
     if(!clean){
@@ -236,7 +255,7 @@ void print_clean_str_lit(const char *s){
     clean[0] = '"';
     clean[1] = '\0';
     for (const char *reader = s; *reader; reader++){
-        char *next = clean_char(*reader, '"');
+        char *next = descape_char(*reader, '"');
         strcat(clean, next);
         free(next);
     }
@@ -246,7 +265,7 @@ void print_clean_str_lit(const char *s){
 }
 
 int oper_precedence(expr_t t){
-    // prevent against unlikely empty expr here
+    // handle against unlikely empty expr here
     if( t == EXPR_EMPTY )   return INT_MAX;
     int oper_precs[] = <oper_precedences_arr_placeholder>;
     return oper_precs[t - <first_oper_placeholder>];

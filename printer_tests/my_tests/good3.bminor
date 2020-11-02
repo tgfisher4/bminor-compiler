@@ -5,6 +5,8 @@ main: function integer() = {
     + + a;
     a - (b - c);
     a - b - c;
+    -x;
+    -+x;
 
     a * b * c;
     a * (b * c);

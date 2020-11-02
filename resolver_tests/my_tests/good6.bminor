@@ -1,0 +1,4 @@
+// resolver allows recursion
+main: function void () = {
+    main();
+}

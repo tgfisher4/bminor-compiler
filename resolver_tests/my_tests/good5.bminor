@@ -1,0 +1,9 @@
+f: function void ();
+
+main: function string();
+
+main: function void () = {
+    f(main());
+}
+
+f: function string();

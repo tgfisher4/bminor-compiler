@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "token.h"
 #include "decl.h"
+#include "scope.h"
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -22,12 +23,14 @@ char *indent_space(int indents);
 int scan_file(char *filename, bool verbose);
 int parse_file(char *filename);
 void print_ast(struct decl *ast);
+int resolve_ast(struct decl *ast, bool verbose);
 void process_cl_args(int argc, char** argv, bool* stages, char** to_compile);
 
 /* stages */
 int SCAN  = 0,
     PARSE = 1,
-    PPRINT = 2;
+    PPRINT = 2,
+    RESOLVE = 3;
 
 void usage(int return_code, char *called_as){
     printf(
@@ -37,13 +40,14 @@ void usage(int return_code, char *called_as){
 "   -scan <file>    Scans <file> and outputs tokens encountered\n"
 "   -parse <file>   Scans <file> quietly and reports whether parse was successful\n"
 "   -print <file>   Scans and parses <file> quietly and outputs a nicely formatted version of the bminor program <file>\n"
+"   -resolve <file> Scans, parses, and builds AST for program <file> quietly, then resolves all variable references\n"
             , called_as);
     exit(return_code);
 }
 
 int main(int argc, char **argv){
     // default values
-    bool stages[] = {false, false, false, false};
+    bool stages[] = {false, false, false, false, false};
     char *to_compile = "";
 
     bool run_all = true;
@@ -55,25 +59,39 @@ int main(int argc, char **argv){
 
     /* scan */
     if (scan_file(to_compile, stages[SCAN])){
-        puts("scan unsuccessful");
+        puts("Scan unsuccessful");
         return EXIT_FAILURE;
     }
     else if (stages[SCAN])
-        puts("scan successful");
+        puts("Scan successful");
 
     /* parse */
-    if (stages[PARSE] || stages[PPRINT]) {
+    if (stages[PARSE] || stages[PPRINT] || stages[RESOLVE]) {
         if (parse_file(to_compile)) {
-            puts("parse unsuccessful");
+            puts("Parse unsuccessful");
             return EXIT_FAILURE;
         }
         else if (stages[PARSE])
-            puts("parse successful");
+            puts("Parse successful");
     }
     
     /* print */
-    if (stages[PPRINT]) print_ast(ast);
-    puts("");
+    if (stages[PPRINT]) { print_ast(ast); puts(""); }
+
+    /* resolve */
+    // if resolve or typecheck or...
+    if (stages[RESOLVE]){
+        int err_count = resolve_ast(ast, stages[RESOLVE]);
+        puts("");
+        if(err_count){
+            printf("Encountered %d name resolution error%s\n", err_count, err_count == 1 ? "" : "s");
+            puts("Name resolution unsuccessful");
+            return EXIT_FAILURE;
+        }
+        else if(stages[RESOLVE]){
+            puts("Name resolution successful");
+        }
+    }
 
     return EXIT_SUCCESS;
 }
@@ -90,11 +108,14 @@ void process_cl_args(int argc, char **argv, bool *stages, char **to_compile){
         else if (!strcmp("-print", argv[i])){
             stages[PPRINT] = true;
         }
+        else if (!strcmp("-resolve", argv[i])){
+            stages[RESOLVE] = true;
+        }
         else if ( !strcmp("-help", argv[i]) || !strcmp("-h", argv[i]) ){
             usage(EXIT_SUCCESS, argv[0]);
         }
         else {
-            // if we've already assign the file to compile
+            // if we've already assigned the file to compile
             if (**to_compile)   usage(EXIT_FAILURE, argv[0]);
             // shouldn't need to worry about data pointed to going out of scope here since this isn't being assigned to something on the stack
             else                *to_compile = argv[i];
@@ -104,10 +125,17 @@ void process_cl_args(int argc, char **argv, bool *stages, char **to_compile){
 
 void print_ast(struct decl *ast){ decl_print_list(ast, 0, ";", "\n"); }
 
+int resolve_ast(struct decl *ast, bool verbose){
+    struct scope *sc = scope_enter(NULL);
+    int err_count = decl_resolve(ast, sc, false, verbose);
+    scope_exit(sc);
+    return err_count;
+}
+
 int parse_file(char *filename){
     yyin = fopen(filename, "r");
     if(!yyin) {
-        printf("Could not open %s! %s\n", filename, strerror(errno));
+        printf("[ERROR|file] Could not open %s! %s\n", filename, strerror(errno));
         return 1;
     }
     // 0 for success, 1 for failure
@@ -126,7 +154,7 @@ int scan_file(char *filename, bool verbose){
     yyin = fopen(filename, "r");
     token_t t = TOKEN_EOF;
     if(!yyin) {
-        printf("Could not open %s! %s\n", filename, strerror(errno));
+        printf("[ERROR|file] Could not open %s! %s\n", filename, strerror(errno));
         return 1;
     }
     do {
@@ -135,17 +163,16 @@ int scan_file(char *filename, bool verbose){
         if (verbose) {
             switch(t){
                 case SCAN_ERR:
-                    fprintf(stderr, "Scan error - invalid token: %s\n", yytext);
+                    fprintf(stdout, "[ERROR|scan] Invalid token: %s\n", yytext);
                     break;
                 case INTERNAL_ERR:
-                    fprintf(stderr, "Internal error: %s (sorry!)\n", strerror(errno));
+                    fprintf(stdout, "[ERROR|internal] Internal error: %s (sorry!)\n", strerror(errno));
                     break;
                 case IDENT:
                     printf("%s %s\n", token_strs[t_str_idx], yytext);
                     break;
                 case STR_LIT:
                     printf("%s %s\n", token_strs[t_str_idx], last_string_literal);
-                    free(last_string_literal);
                     break;
                 case INT_LIT:
                     printf("%s %d\n", token_strs[t_str_idx], last_int_literal);
@@ -158,6 +185,7 @@ int scan_file(char *filename, bool verbose){
                     break;
             }
         } 
+        if( t == STR_LIT ) free(last_string_literal);
     } while( !(t == TOKEN_EOF || t == SCAN_ERR || t == INTERNAL_ERR) );
     fclose(yyin);
     return t != TOKEN_EOF;

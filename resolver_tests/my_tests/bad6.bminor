@@ -1,0 +1,16 @@
+// test counting of errors
+
+x: integer = x; // 1
+
+main: function void () = {
+    if ( argc > 1 ){ // 2
+        f(argv[1]); // 3, 4
+    }
+
+    {
+        for(i = 0; i < s; i++){ // 5, 6, 7, 8
+            x;
+        }
+   }
+   return main;
+}

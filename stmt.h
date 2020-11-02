@@ -33,5 +33,8 @@ struct stmt * stmt_create( stmt_t kind, struct decl *decl, struct expr *expr_lis
 void stmt_print( struct stmt *s, int indents, bool indent_first );
 void stmt_print_list( struct stmt *s, int indents, char *delim );
 
+struct scope;
+int  stmt_resolve( struct stmt *s, struct scope *sc, bool verbose);
+
 
 #endif

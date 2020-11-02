@@ -11,9 +11,12 @@
 //#define YYSTYPE struct decl *
 
 extern char *yytext;
+extern char *last_string_literal;
+extern char last_char_literal;
+extern int last_int_literal;
 extern int yylex();
 extern int yyerror( char *str );
-extern char *clean_string(char *string, char delim);
+//extern char *clean_string(char *string, char delim);
 struct decl *ast;
 
 %}
@@ -286,11 +289,11 @@ expr1 : L_PAR expr R_PAR
 atom : ident
      { $$ = expr_create_identifier($1); }
      | STR_LIT
-     { char *s = clean_string(yytext, '"'); if (!s) return -1; $$ = expr_create_string_literal(s); }
+     { $$ = expr_create_string_literal(last_string_literal); }
      | INT_LIT
-     { $$ = expr_create_integer_literal(atoi(yytext)); }
+     { $$ = expr_create_integer_literal(last_int_literal); }
      | CHAR_LIT
-     { char *s = clean_string(yytext, '\''); if (!s) return -1; $$ = expr_create_char_literal(*s); }
+     { $$ = expr_create_char_literal(last_char_literal); }
      | TRUE
      { $$ = expr_create_boolean_literal(true); }
      | FALSE
@@ -300,7 +303,13 @@ atom : ident
      ;
 
 ident: IDENT
-     { char *s = strdup(yytext); if (!s){ fprintf(stderr, "Failed to allocate space for duping identifier.\n"); exit(EXIT_FAILURE);} $$ = s; }
+     { char *s = strdup(yytext);
+       if (!s){
+           fprintf(stdout, "[ERROR|internal] Failed to allocate space for duping identifier.\n");
+           exit(EXIT_FAILURE);
+       }
+       $$ = s;
+     }
      ;
 
 
