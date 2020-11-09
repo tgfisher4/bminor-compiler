@@ -116,12 +116,350 @@ int expr_resolve(struct expr *e, struct scope *sc, bool verbose){
     //  - just need to interpret data as expr pointer
     // my choice to use a union for e->data makes this clunky
     if( !(e->kind == EXPR_EMPTY    || e->kind == EXPR_IDENT
-       || e->kind == EXPR_INT_LIT  || e->kind == EXPR_STR_LIT
-       || e->kind == EXPR_CHAR_LIT || e->kind == EXPR_BOOL_LIT) )
+       || expr_is_literal_atom(e->kind))
         err_count += expr_resolve(e->data->operator_args, sc, verbose);
 
     err_count += expr_resolve(e->next, sc, verbose);
     return err_count;
+}
+
+bool expr_is_literal_atom(expr_t e_t){
+    return !(e_t == EXPR_INT_LIT  || e_t == EXPR_STR_LIT ||
+             e_t == EXPR_CHAR_LIT || e_t == EXPR_BOOL_LIT);
+}
+
+type_t literal_to_type_t(expr_t e_t){
+    //if( !is_literal(e_t) ) return TYPE_VOID;
+    // can use placeholder later
+    type_t literal_types[] = {TYPE_INTEGER, TYPE_STRING, TYPE_BOOLEAN, TYPE_CHAR, TYPE_BOOLEAN};
+    return literal_types[e_t - literal_types[0]];
+}
+
+struct type *expr_typecheck(struct expr *e){
+    if( !e || e->kind == EXPR_EMPTY ) return NULL;
+
+    if( e->kind == EXPR_IDENT ){
+        // copy type found in relevant symbol
+        //  - this allows me to unconditionally delete types after grabbing them from subexpressions
+        struct type *to_return = type_copy(e->symbol->type);
+        // double check that these are set as we expect
+        to_return->lvalue = true;
+        to_return->const_value = false;
+        return to_return;
+    }
+
+    if( e->kind == EXPR_FUNC_CALL){
+        // TODO: check args/params
+        if( e->symbol->type != TYPE_FUNCTION ){
+            // emit error: cannot call nonfunction ident
+            printf("[ERROR|typecheck] You attempted to call a non-function variable %s as if it were a function (", e->symbol->name);
+            expr_print(e);
+            printf(").\n");
+            type_check_errors++;
+        }
+        expr_typecheck_func_args(e->data->func_and_args->next, e->symbol->type->params, e->symbol->name);
+        // possible return type return type
+        struct type *to_return = type_copy(e->symbol->type->subtype);
+        to_return->lvalue       = false;
+        to_return->const_value  = false;
+        return to_return;
+    }
+
+    if( expr_is_literal(e->kind) ){
+        // type being created from a literal: no type to copy
+        return type_create_atomic(expr_literal_to_type_t(e->kind), false, true);
+    }
+
+    if( e->kind == EXPR_ARR_LIT ){
+        struct type *expected_type = expr_typecheck(e->data->arr_elements);
+        int sz = 1;
+        for( struct expr *curr = arr_elements->next; curr; curr = curr->next, sz++ ){
+            struct type *curr_type = expr_typecheck(curr);
+            if( !type_equals(curr_type, expected_type) ){
+                // emit arr multiple types error
+                printf("[ERROR|typecheck] You attempted to create an array literal with elements of multiple types, including ");
+                type_print(expected_type);
+                printf(" (");
+                expr_print(e->data->arr_elements);
+                printf(") and ");
+                type_print(curr_type);
+                printf(" (");
+                expr_print(curr);
+                printf(" ). You may only have elements of a single type in your array.\n");
+                type_check_errors++;
+            }
+            type_delete(curr_type);
+        }
+        struct type* to_return = type_create(TYPE_ARRAY, expected_type,
+                                    expr_create_integer_literal(sz), NULL);
+        type_delete(expected_type);
+        return to_return;
+    }
+
+    // now, we've checked all other cases, we are left with an operator
+    //  - we can interpret data field as expr *
+    struct type *left_arg_type = expr_type_check(e->data->operator_args);
+    struct type *right_arg_type = expr_type_check(e->data->operator_args->next);
+
+    if( (e->kind == EXPR_ASGN || e->kind == EXPR_POST_INC || e->kind == EXPR_POST_DEC)
+     && !left_arg_type->lvalue){
+        // TODO emit lvalue error message
+        printf("[ERROR|typecheck] You attempted to assign to unassignable object ");
+        expr_print(left_arg);
+        printf(" (");
+        expr_print(e);
+        printf("). You may only assign to variables and array elements.\n");
+    }
+
+    // check operand types
+    switch(e->kind){
+        case EXPR_EQ:
+        case EXPR_NOT_EQ:
+            // check not compound type or void and fall through
+            if( type_equals(left_arg_type, TYPE_VOID) || left_arg_type->subtype ){
+                // TODO emit type error
+                print_symm_binary_type_error(e->kind, "same, non-void, atomic (non-array, non-function)", left_arg_type, e->data->operator_args, right_arg_type, e->data->operator_args->next);
+                type_check_errors++;
+            }
+        case EXPR_ASGN:
+            if( !type_equals(left_arg_type, right_arg_type) ){
+                // emit type error
+                print_symm_binary_type_error(e->kind, "same", left_arg_type, e->data->operator_args, right_arg_type, e->data->operator_args->next);
+                type_check_errors++;
+            }
+            break;
+        case EXPR_OR:
+        case EXPR_AND:
+        case EXPR_NOT:
+            if( !(type_t_equals(left_arg_type->kind,  TYPE_BOOLEAN)
+               && type_t_equals(right_arg_type->kind, TYPE_BOOLEAN)) ){
+                // TODO emit type error
+                print_symm_binary_type_error(e->kind, "boolean", left_arg_type, e->data->operator_args, right_arg_type, e->data->operator_args->next);
+                type_check_errors++;
+            }
+            break;
+        case POST_INC:
+        case POST_DEC:
+        case EXPR_LT:
+        case EXPR_LT_EQ:
+        case EXPR_GT:
+        case EXPR_GT_EQ:
+        case EXPR_ADD:
+        case EXPR_SUB:
+        case EXPR_MUL:
+        case EXPR_DIV:
+        case EXPR_MOD:
+        case EXPR_EXP:
+        case EXPR_ADD_ID:
+        case EXPR_ADD_INV:
+            if( !(type_t_equals(left_arg_type->kind,  TYPE_INTEGER)
+               && type_t_equals(right_arg_type->kind, TYPE_INTEGER)) ){
+                // TODO emit type error
+                print_symm_binary_type_error(e->kind, "integer", left_arg_type, e->data->operator_args, right_arg_type, e->data->operator_args->next);
+                type_check_errors++;
+            }
+            break;
+        case EXPR_ARR_ACC:
+            if( !(type_t_equals(left_arg_type->kind,  TYPE_ARRAY)
+               && type_t_equals(right_arg_type->kind, TYPE_INTEGER)) ){
+                // emit type error
+                print_asymm_binary_type_error(e->kind, "array", left_arg_type, e->data->operator_args, "integer", right_arg_type, e->data->operator_args->next);
+                type_check_errors++;
+            }
+            break;
+        default:
+            printf("Wah wah wah\n");
+            break;
+    }
+
+    // construct operator return type
+    struct type *to_return;
+    bool is_const = (!left_arg_type  || left_arg_type->const_value)
+                 && (!right_arg_type || right_arg_type->const_value;
+    switch(e->kind){
+        case EXPR_ASGN:
+            to_return = type_copy(right_arg_type);
+            to_return->is_const = right_arg_type->is_const;
+            break;
+        case EXPR_OR:
+        case EXPR_AND:
+        case EXPR_LT:
+        case EXPR_LT_EQ:
+        case EXPR_GT:
+        case EXPR_GT_EQ:
+        case EXPR_EQ:
+        case EXPR_NOT_EQ:
+        case EXPR_NOT:
+            to_return = type_create_atomic(TYPE_BOOLEAN, false, is_const);
+            break;
+        case EXPR_ADD:
+        case EXPR_SUB:
+        case EXPR_MUL:
+        case EXPR_DIV:
+        case EXPR_MOD:
+        case EXPR_EXP:
+            to_return = type_create_atomic(TYPE_BOOLEAN, false, is_const);
+            break;
+        case EXPR_ARR_ACC:
+            to_return = type_copy(left_arg_type->subtype);
+            to_return->lvalue = true;
+            break;
+        default:
+            puts("Yikes");
+            break;
+    }
+    type_delete(left_arg_type);
+    type_delete(right_arg_type);
+    return to_return;
+}
+
+void expr_typecheck_func_args(struct expr *args, struct decl *params, char *func_name){
+    // base case NULL checks
+    if( !args && !params ) return;
+    if( args && !params ){
+        // too many args
+        printf("[ERROR|typecheck] You passed too many arguments to function %s.\n", func_name);
+        type_check_errors++;
+        return;
+    }
+    if( params && !args ){
+        // too few args
+        printf("[ERROR|typecheck] You passed too few arguments to function %s.\n", func_name);
+        type_check_errors++;
+        return;
+    }
+
+    struct type *arg_type   = expr_typecheck(args);
+    struct type *param_type = params->type;
+
+    if( !type_equals(arg_type, param_type) ){
+        // emit arg type error: maybe pass func name in too so we can cite that
+        printf("[ERROR|typecheck] You passed a(n) ");
+        type_print(arg_type);
+        printf(" (");
+        expr_print(args);
+        printf(") as an argument to %s where a(n) ", func_name);
+        type_print(param_type);
+        printf(" was expected.\n");
+        type_check_errors++;
+    }
+    type_delete(arg_type);
+
+    expr_typecheck_func_args(args->next, params->next, func_name);
+}
+
+
+void print_symm_binary_type_error(expr_t oper, char *expected_type, struct type *left_type, struct expr *left_expr, struct type *right_type, struct expr *right_expr){
+    char postamble[BUFSIZ];
+    sprintf(postamble, "The '%s' operator accepts two operands of the %s type",
+            oper_to_str(oper),
+            expected_type);
+    print_type_error(oper, postamble, left_type, left_expr, right_type, right_expr);
+}
+
+void print_asymm_binary_type_error(expr_t oper, char *expected_left_type, char *expected_right_type, struct type *left_type, struct expr *left_expr, struct type *right_type, struct expr *right_expr){
+    char postamble[BUFSIZ];
+    sprintf(postamble, "The '%s' operator accepts a left operand of %s type and a right operand of %s type",
+            oper_to_str(oper),
+            expected_left_type,
+            expected_right_type);
+    print_type_error(oper, postamble, left_type, left_expr, right_type, right_expr);
+}
+
+void print_unary_type_error(expr_t oper, bool is_right_unary, char *expected_type, struct type *arg_type, struct expr *arg_expr){
+    printf("You passed the '%s' operator %s ",
+            oper_to_str(oper), is_vowel(*type_t_to_str(arg_type->kind)) ? "an" : "a");
+    type_print(arg_type);
+    printf(" (");
+    expr_print(arg_expr);
+    printf("). The '%s' operator accepts a single operand of the %s type, placed to the %s.\n",
+            oper_to_str(oper), expected_type, is_right_unary ? "right" : "left");
+}
+
+void print_binary_type_error(expr_t oper, char *preamble, struct type *left_type, struct expr *left_expr, struct type *right_type, struct expr *right_expr){
+    // NULL type indicates unary operator with empty left/right operand
+    bool left_an  = is_vowel(*type_t_to_str(left_type->kind));
+    bool right_an = is_vowel(*type_t_to_str(right_type->kind));
+    printf("[ERROR|typecheck] You passed the '%s' operator %s", left_an ? "an" : "a");
+    type_print(left_type);
+    printf(" left operand (");
+    expr_print(left_expr);
+    printf(") and %s", right_an ? "an" : "a");
+    type_print(right_type);
+    printf" right operand (");
+    expr_print(right_expr);
+    printf(". %s.\n", postamble);
+
+    /*
+    bool left_an  = is_vowel(left_type  ? *type_t_to_str(left_type->kind)  : 'e');
+    bool right_an = is_vowel(right_type ? *type_t_to_str(right_type->kind) : 'e');
+    printf("[ERROR|typecheck] %s, but was given %s",
+            preamble,
+            left_an ? "an" : "a");
+    if( left_type ) type_print(left_type);
+    else            fputs(stdout, "empty");
+    printf(" left operand (");
+    expr_print(left_expr);
+    printf(") and %s ",
+            right_an ? "an" : "a");
+    if( right_type ) type_print(right_type);
+    else            fputs(stdout, "empty");
+    print(" right operand (");
+    expr_print(right_expr);
+    printf(")\n");
+    */
+}
+
+
+int expr_eval_const_int(struct expr *e){
+    // return dummy value that will be ignored
+    if( !e || e->kind == EXPR_EMPTY ) return 0;
+    
+    // won't necessarily use these (i.e. unary operators or literal), but I'll set em up here
+    int l = expr_eval_const_int(e->data->operator_args);
+    int r = expr_eval_const_int(e->data->operator_args->next);
+
+    switch( e->kind ){
+        case EXPR_ASGN:
+            return r;
+            break;
+        case EXPR_ADD:
+            return l + r;
+            break;
+        case EXPR_SUB:
+            return l - r;
+            break;
+        case EXPR_MUL:
+            return l * r;
+            break;
+        case EXPR_DIV:
+            return l / r;
+            break;
+        case EXPR_MOD:
+            return l % r;
+            break;
+        case EXPR_EXP:
+            return pow(l, r);
+            break;
+        case EXPR_ADD_ID:
+            return r;
+            break;
+        case EXPR_ADD_INV:
+            return -r;
+            break;
+        case EXPR_INT_LIT:
+            return e->data->int_data;
+            break;
+        default:
+            printf("Expr eval failed for expr: ");
+            expr_print(e);
+            printf("\n");
+            break;
+    }
+}
+
+bool is_vowel(char c){
+    return c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u';
 }
 
 char *oper_to_str(expr_t t){

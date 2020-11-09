@@ -17,7 +17,7 @@ typedef enum {
 	EXPR_EQ,        // @    4       @   yes          @   left         @   " == "  @
 	EXPR_NOT_EQ,    // @    4       @   yes          @   left         @   " != "  @
     EXPR_ADD,       // @    5       @   yes          @   left         @   " + "   @
-    EXPR_SUB,       // @    5       @   no           @   left         @   " - "   @  
+    EXPR_SUB,       // @    5       @   no           @   left         @   " - "   @ 
 	EXPR_MUL,       // @    6       @   yes          @   left         @   " * "   @
 	EXPR_DIV,       // @    6       @   no           @   left         @   " / "   @ 
     EXPR_MOD,       // @    6       @   no           @   left         @   " % "   @ 
@@ -86,5 +86,7 @@ void expr_print_list( struct expr *e, char *delim );
 
 struct scope;
 int expr_resolve( struct expr *e, struct scope *sc, bool verbose );
+
+struct type *expr_typecheck( struct expr *e );
 
 #endif
