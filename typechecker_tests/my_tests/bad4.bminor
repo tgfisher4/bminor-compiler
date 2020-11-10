@@ -1,0 +1,8 @@
+// bad prototypes
+
+f: function void ();
+f: function  integer ();
+
+f: function string () = {
+    return "Hello, World!";
+}

@@ -1,0 +1,16 @@
+// array types
+
+i: array [] integer;
+j: array [2] integer = {'c', 'd'};
+k: array [2] integer = {1, 'c'};
+l: array [2] integer = {'c', "string"};
+m: array [2] integer = {1};
+n: array [2] function void ();
+o: array [2] void;
+p: array [0] integer;
+
+q: array [-1] integer;
+
+w: array [m] integer;
+a: integer = 4;
+x: array [a] integer;

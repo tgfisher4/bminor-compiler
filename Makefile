@@ -30,7 +30,7 @@ clean:
 
 bminor: 		    main.o bminor_scan.o bminor_parse.o $(AST_COMP) $(NAME_RES) token.h
 	@echo "Linking bminor..."
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD) $(LDFLAGS) -o $@ $^ -lm
 
 #token.h:		    token.h.placeheld
 #	@echo "Substituting placeholders for token.h..."

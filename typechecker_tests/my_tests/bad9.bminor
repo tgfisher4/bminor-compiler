@@ -1,0 +1,3 @@
+// many array errors
+a: void;
+b: array [a] void = {a, a, a};

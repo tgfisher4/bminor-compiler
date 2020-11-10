@@ -1,0 +1,15 @@
+// basic decls and assignments
+
+
+a: integer = 'c';
+b: integer = "string";
+c: integer = {1, 2, 3};
+d: integer = true;
+z: string;
+y: integer = z;
+
+e: char = false;
+f: string = false;
+g: boolean = 0;
+
+h: void;

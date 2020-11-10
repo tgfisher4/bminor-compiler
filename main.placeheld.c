@@ -17,6 +17,7 @@ extern char  last_char_literal;
 extern char *last_string_literal;
 extern struct decl *ast;
 
+
 extern int yyparse();
 
 char *indent_space(int indents);
@@ -24,13 +25,17 @@ int scan_file(char *filename, bool verbose);
 int parse_file(char *filename);
 void print_ast(struct decl *ast);
 int resolve_ast(struct decl *ast, bool verbose);
+void typecheck_ast(struct decl *ast);
 void process_cl_args(int argc, char** argv, bool* stages, char** to_compile);
 
 /* stages */
 int SCAN  = 0,
     PARSE = 1,
     PPRINT = 2,
-    RESOLVE = 3;
+    RESOLVE = 3,
+    TYPECHECK = 4;
+
+int   typecheck_errors;
 
 void usage(int return_code, char *called_as){
     printf(
@@ -41,6 +46,7 @@ void usage(int return_code, char *called_as){
 "   -parse <file>   Scans <file> quietly and reports whether parse was successful\n"
 "   -print <file>   Scans and parses <file> quietly and outputs a nicely formatted version of the bminor program <file>\n"
 "   -resolve <file> Scans, parses, and builds AST for program <file> quietly, then resolves all variable references\n"
+"   -typecheck <file> Scans, parses, and builds AST for program <file> queitly, then resolves and typechecks\n"
             , called_as);
     exit(return_code);
 }
@@ -66,7 +72,7 @@ int main(int argc, char **argv){
         puts("Scan successful");
 
     /* parse */
-    if (stages[PARSE] || stages[PPRINT] || stages[RESOLVE]) {
+    if (stages[PARSE] || stages[PPRINT] || stages[RESOLVE] || stages[TYPECHECK]) {
         if (parse_file(to_compile)) {
             puts("Parse unsuccessful");
             return EXIT_FAILURE;
@@ -80,9 +86,9 @@ int main(int argc, char **argv){
 
     /* resolve */
     // if resolve or typecheck or...
-    if (stages[RESOLVE]){
+    if( stages[RESOLVE] || stages[TYPECHECK] ){
         int err_count = resolve_ast(ast, stages[RESOLVE]);
-        puts("");
+        if( stages[RESOLVE] ) puts("");
         if(err_count){
             printf("Encountered %d name resolution error%s\n", err_count, err_count == 1 ? "" : "s");
             puts("Name resolution unsuccessful");
@@ -90,6 +96,20 @@ int main(int argc, char **argv){
         }
         else if(stages[RESOLVE]){
             puts("Name resolution successful");
+        }
+    }
+    /* typecheck */ 
+    if( stages[TYPECHECK] ){
+        typecheck_ast(ast);
+        if(typecheck_errors){
+            printf("\nEncountered %d typechecking error%s\n",
+                    typecheck_errors,
+                    typecheck_errors == 1 ? "" : "s");
+            puts("Typecheck unsuccessful");
+            return EXIT_FAILURE;
+        }
+        else if(stages[TYPECHECK]){
+            puts("Typecheck successful");
         }
     }
 
@@ -111,6 +131,9 @@ void process_cl_args(int argc, char **argv, bool *stages, char **to_compile){
         else if (!strcmp("-resolve", argv[i])){
             stages[RESOLVE] = true;
         }
+        else if (!strcmp("-typecheck", argv[i])){
+            stages[TYPECHECK] = true;
+        }
         else if ( !strcmp("-help", argv[i]) || !strcmp("-h", argv[i]) ){
             usage(EXIT_SUCCESS, argv[0]);
         }
@@ -131,6 +154,8 @@ int resolve_ast(struct decl *ast, bool verbose){
     scope_exit(sc);
     return err_count;
 }
+
+void typecheck_ast(struct decl *ast){ decl_list_typecheck(ast); }
 
 int parse_file(char *filename){
     yyin = fopen(filename, "r");

@@ -1,9 +1,11 @@
 #include "stmt.h"
+#include "decl.h"
 #include "scope.h"
 #include <stdlib.h>
 #include <stdio.h>
 
 extern void indent(int indents);
+extern int typecheck_errors;
 
 struct stmt * stmt_create( stmt_t kind, struct decl *decl, struct expr *expr_list, struct stmt *body){
     struct stmt *s = malloc(sizeof(*s));
@@ -94,27 +96,119 @@ void stmt_print_list(struct stmt *s, int indents, char *delim){
 int stmt_resolve(struct stmt *s, struct scope *sc, bool verbose){
     if( !s ) return 0;
     int err_count = 0;
-    //printf("stmt: received scope with %d params\n", sc->params);
     err_count += decl_resolve(s->decl, sc, false, verbose);
     // resolve if cond, print params, for params, general expression
     err_count += expr_resolve(s->expr_list, sc, verbose);
     // resolve inner scope if block
-    //static int i = 0;
-    //i++;
-    //struct scope *p = sc;
-    //if( i == 3 ) printf("scope being nested contains argv? %d\n", (bool) scope_lookup(sc, "argv", true));
     sc = s->kind == STMT_BLOCK ? scope_enter(sc) : sc;
-    //if( i == 3 ) printf("nested scope contains argv? %d\n", (bool) scope_lookup(sc, "argv", false));
-    //printf("inner scope next is og scope? %d\n", p == sc->next);
-    //if( i == 3 ) printf("nested scope next contains argv? %d\n", (bool) scope_lookup(sc->next, "argv", true));
-    //struct scope *inner_sc = scope_enter(sc);
-    //printf("stmt: resolving body %d\n", i);
-    //err_count += stmt_resolve(s->body, inner_sc, verbose);
     err_count += stmt_resolve(s->body, sc, verbose);
     sc = s->kind == STMT_BLOCK ? scope_exit(sc) : sc;
-    //printf("stmt: body resolved %d\n", i);
-    //printf("stmt %d has %d errors\n", s->kind, err_count);
 
     err_count += stmt_resolve(s->next, sc, verbose);
     return err_count;
+}
+
+void stmt_typecheck(struct stmt *s, struct decl *enc_func){
+    if (!s) return;
+
+    struct type *type;
+    struct expr *expr;
+    switch(s->kind){
+        case STMT_DECL:
+            decl_typecheck(s->decl);
+            if( s->decl->type->kind == TYPE_FUNCTION ){
+                // cannot declare function inside function
+                printf("[ERROR|typecheck] You attempted to declare a function (`");
+                decl_print_no_asgn(s->decl);
+                printf("`) within a function (`");
+                decl_print_no_asgn(enc_func);
+                printf("`). Sorry, but BMinor does not currently support nested function definitions. That is, you cannot declare a function within another function.\n");
+                typecheck_errors++;
+            }
+            break;
+        case STMT_EXPR:
+            type = expr_typecheck(s->expr_list);
+            type_delete(type);
+            break;
+        case STMT_IF_ELSE:
+            type = expr_typecheck(s->expr_list);
+            if( type->kind != TYPE_BOOLEAN ){
+                // can only check boolean condition
+                printf("[ERROR|typecheck] You attempted to pass an expression of type ");
+                expr_print_type_and_expr(type, s->expr_list);
+                printf(" as the condition to an if statement. You must pass an expression resolving to a boolean as the condition, indiciating whether to execute the body of the if statement.\n");
+                typecheck_errors++;
+            }
+            type_delete(type);
+            break;
+        case STMT_FOR:
+            // check that our init and incremental expr's are cool
+            type = expr_typecheck(s->expr_list);
+            type_delete(type);
+            type = expr_typecheck(s->expr_list->next->next);
+            type_delete(type);
+
+            type = expr_typecheck(s->expr_list->next);
+            if( type->kind != TYPE_BOOLEAN ){
+                // can only check boolean condition
+                printf("[ERROR|typecheck] You attempted to pass an expression of type ");
+                expr_print_type_and_expr(type, s->expr_list->next);
+                printf(" as the continuation condition to a for statement. You must pass an expression resolving to a boolean as the continuation condition (or no expression at all, which is interpreted as the expression 'true'), indiciating whether to execute the body of the loop.\n");
+                typecheck_errors++;
+            }
+            break;
+        case STMT_PRINT:
+            for( expr = s->expr_list; expr; expr = expr->next ){
+                type = expr_typecheck(expr);
+                if( type->kind == TYPE_ARRAY
+                 || type->kind == TYPE_FUNCTION
+                 || type->kind == TYPE_VOID ){
+                    // cannot print array or function
+                    printf("[ERROR|typecheck] You attempted to print an expression of type ");
+                    expr_print_type_and_expr(type, expr);
+                    printf(". You may only print expressions of atomic, non-void types (integer, char, string, boolean).\n");
+                    typecheck_errors++;
+                }
+                type_delete(type);
+            }
+            break;
+            case STMT_RETURN:
+                type = expr_typecheck(s->expr_list);
+            if( type && enc_func->type->subtype->kind == TYPE_VOID ){
+                // void function cannot return value
+                printf("[ERROR|typecheck] You attempted to return an expression of type ");
+                expr_print_type_and_expr(type, s->expr_list);
+                printf(" from a function which returns type ");
+                type_print(enc_func->type->subtype);
+                printf(" (");
+                decl_print_no_asgn(enc_func);
+                printf("). You may not return a value from a function of return type void, but the return statement may be used without an expression to force an early exit.\n");
+                typecheck_errors++;
+            }
+            else if( !type_equals(type, enc_func->type->subtype) ){
+                // type of expression returned does not match function return type
+                printf("[ERROR|typecheck] You attempted to return an expression of type ");
+                expr_print_type_and_expr(type, s->expr_list);
+                printf(" from a function which returns type ");
+                type_print(enc_func->type->subtype);
+                printf(" (");
+                decl_print_no_asgn(enc_func);
+                printf("). You may only return an expression of the return type of the enclosing function.\n");
+                typecheck_errors++;
+            }
+            break;
+        case STMT_BLOCK:
+            break;
+        default:
+            break;
+    }
+
+    // check body(ies) of if statements, for loops, blocks, etc.
+    stmt_list_typecheck(s->body, enc_func);
+}
+
+void stmt_list_typecheck(struct stmt *s, struct decl *enc_func){
+    if (!s) return;
+    stmt_typecheck(s, enc_func);
+    stmt_list_typecheck(s->next, enc_func);
 }

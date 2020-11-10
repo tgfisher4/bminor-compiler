@@ -7,27 +7,27 @@
 typedef enum {
     /* EXPR_NAME       @ precedence @   commutative? @  associativity @   string  @ */
     EXPR_EMPTY,     // @    11      @                @                @           @
-    EXPR_ASGN,      // @    1       @   no           @   right        @   " = "   @
-    EXPR_OR,        // @    2       @   yes          @   left         @   " || "  @
-    EXPR_AND,       // @    3       @   yes          @   left         @   " && "  @
-    EXPR_LT,        // @    4       @   yes          @   left         @   " < "   @
-    EXPR_LT_EQ,     // @    4       @   yes          @   left         @   " <= "  @
-    EXPR_GT,        // @    4       @   yes          @   left         @   " > "   @
-    EXPR_GT_EQ,     // @    4       @   yes          @   left         @   " >= "  @
-	EXPR_EQ,        // @    4       @   yes          @   left         @   " == "  @
-	EXPR_NOT_EQ,    // @    4       @   yes          @   left         @   " != "  @
-    EXPR_ADD,       // @    5       @   yes          @   left         @   " + "   @
-    EXPR_SUB,       // @    5       @   no           @   left         @   " - "   @ 
-	EXPR_MUL,       // @    6       @   yes          @   left         @   " * "   @
-	EXPR_DIV,       // @    6       @   no           @   left         @   " / "   @ 
-    EXPR_MOD,       // @    6       @   no           @   left         @   " % "   @ 
-    EXPR_EXP,       // @    7       @   no           @   left         @   " ^ "   @ 
+    EXPR_ASGN,      // @    1       @   no           @   right        @   "="   @
+    EXPR_OR,        // @    2       @   yes          @   left         @   "||"  @
+    EXPR_AND,       // @    3       @   yes          @   left         @   "&&"  @
+    EXPR_LT,        // @    4       @   yes          @   left         @   "<"   @
+    EXPR_LT_EQ,     // @    4       @   yes          @   left         @   "<="  @
+    EXPR_GT,        // @    4       @   yes          @   left         @   ">"   @
+    EXPR_GT_EQ,     // @    4       @   yes          @   left         @   ">="  @
+	EXPR_EQ,        // @    4       @   yes          @   left         @   "=="  @
+	EXPR_NOT_EQ,    // @    4       @   yes          @   left         @   "!="  @
+    EXPR_ADD,       // @    5       @   yes          @   left         @   "+"   @
+    EXPR_SUB,       // @    5       @   no           @   left         @   "-"   @ 
+	EXPR_MUL,       // @    6       @   yes          @   left         @   "*"   @
+	EXPR_DIV,       // @    6       @   no           @   left         @   "/"   @ 
+    EXPR_MOD,       // @    6       @   no           @   left         @   "%"   @ 
+    EXPR_EXP,       // @    7       @   no           @   left         @   "^"   @ 
     EXPR_NOT,       // @    8       @                @                @   "!"     @  
     EXPR_ADD_ID,    // @    8       @                @                @   "+"     @
     EXPR_ADD_INV,   // @    8       @                @                @   "-"     @
     EXPR_POST_INC,  // @    9       @                @                @   "++"    @
     EXPR_POST_DEC,  // @    9       @                @                @   "--"    @
-    EXPR_ARR_ACC,   // @    10      @                @                @           @ 
+    EXPR_ARR_ACC,   // @    10      @                @                @   "[]"    @ 
     EXPR_ARR_LIT,   // @    10      @                @                @           @
     EXPR_FUNC_CALL, // @    10      @                @                @           @
     EXPR_IDENT,     // @    10      @                @                @           @
@@ -88,5 +88,6 @@ struct scope;
 int expr_resolve( struct expr *e, struct scope *sc, bool verbose );
 
 struct type *expr_typecheck( struct expr *e );
-
+int expr_eval_const_int( struct expr *e );
+void expr_print_type_and_expr(struct type *t, struct expr *e);
 #endif

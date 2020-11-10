@@ -1,0 +1,36 @@
+// expressions
+
+f: function integer();
+g: function boolean(x: integer, c: char);
+
+main: function void () = {
+    i: integer;
+    j: integer;
+    b: boolean;
+
+    i = 1 + 2;
+    i = 3 - 4;
+    i = 2 * 3;
+    i = 1 % 8;
+    i = 1 / 0;
+    i = 4 ^ 9;
+    i = +3;
+    i = -f();
+    i = j++;
+    i = j--;
+
+    b = true || false;
+    b = true && false;
+    b = !false;
+    b = !!true;
+    b = 3 > f();
+    b = 4 == 5;
+    b = 1 != 2;
+    b = 4 < i;
+    b = 48 + 6 * 7 >= 9;
+    b = j <= 64 - i;
+    
+    a: array [4] string;
+    a[3 + 9 * 27];
+
+}

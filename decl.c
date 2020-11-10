@@ -5,6 +5,7 @@
 //#include <stdbool.h>
 
 extern void indent(int indents);
+extern int typecheck_errors;
 
 struct decl * decl_create(char *ident, struct type *type, struct expr *init_value, struct stmt *func_body){
     struct decl *d = malloc(sizeof(*d));
@@ -48,6 +49,12 @@ void decl_print_list(struct decl *d, int indents, char* term, char *delim){
     decl_print(d, indents, term);
     if (d->next) fputs(delim, stdout);
     decl_print_list(d->next, indents, term, delim);
+}
+
+void decl_print_no_asgn(struct decl *d){
+    if (!d) return;
+    printf("%s: ", d->ident);
+    type_print(d->type);
 }
 
 int decl_resolve(struct decl *d, struct scope *sc, bool am_param, bool verbose){
@@ -97,3 +104,61 @@ int decl_resolve(struct decl *d, struct scope *sc, bool am_param, bool verbose){
     err_count += decl_resolve(d->next, sc, am_param, verbose);
     return err_count;
 }
+
+void decl_typecheck( struct decl *d){
+    if( !d ) return;
+
+    // make sure we have valid type
+    type_typecheck(d->type, d);
+
+    if( !type_equals(d->symbol->type, d->type) ){
+        // must be result of redeclaring mismatched prototype
+        printf("[ERROR|typecheck] You attempted to re-declare function %s as type ", d->ident);
+        type_print(d->type);
+        printf(", but earlier you declared it as type ");
+        type_print(d->symbol->type);
+        printf(".\n");
+        typecheck_errors++;
+    }
+
+    if( d->type->kind == TYPE_VOID ){
+        printf("[ERROR|typecheck] You attempted to declare a variable of type void (`");
+                decl_print_no_asgn(d);
+                printf("`). The void type may only be used as the return type for a function which returns nothing. It is meaningless otherwise: a void variable makes no sense.\n");
+    }
+
+    // array size is given or inferable
+    if( d->type->kind == TYPE_ARRAY ){ 
+        // check size given
+        // allow inference of size from initializer
+        if( !d->type->arr_sz && !d->init_value ){
+            printf("[ERROR|typecheck] You attempted to declare an array without a size or initializer (`");
+            decl_print(d, 0, "");
+            printf("`). You may only do this for an array as a function parameter. In an array declaration, you must specifiy a fixed (does not use variables), positive, integer size, or give an array initializer.\n");
+            typecheck_errors++;
+        }
+    }
+
+    // check init_value type matches variable type
+    struct type *init_value_type = expr_typecheck(d->init_value);
+    if( d->init_value && !type_equals(d->type, init_value_type) ){
+        // emit type mismatch error
+        printf("[ERROR|typecheck] You attempted to assign a(n) ");
+        type_print(d->type);
+        printf(" variable (`%s`) to a(n) ", d->ident);
+        expr_print_type_and_expr(init_value_type, d->init_value);
+        printf(" value. A variable may only store values of its type. Note that an array size is part of its type, and types must match exactly.\n");
+        typecheck_errors++;
+    }
+    type_delete(init_value_type);
+
+    // typecheck function body
+    stmt_list_typecheck(d->func_body, d);
+}
+
+void decl_list_typecheck(struct decl *d){
+    if (!d) return;
+    decl_typecheck(d);
+    decl_list_typecheck(d->next);
+}
+

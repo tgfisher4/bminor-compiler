@@ -1,0 +1,41 @@
+// expressions
+
+f: function void();
+main: function void () = {
+    i: integer;
+    j: integer;
+    b: boolean;
+
+    'c' + "string";
+    'c' - "string";
+    'c' * "string";
+    'c' / "string";
+    'c' % "string";
+    'c' ^ "string";
+    + 'c';
+    - 'c';
+    'c' - "string";
+    j++;
+    j--;
+
+    5++;
+    5 = i;
+
+    0 || 1;
+    0 && 1;
+    'c' > {1, 2, 3};
+    "string" < "other";
+    'c' >= 'd';
+    6 <= main;
+    b == main;
+    v: void;
+    f() == v;
+    {1, 2, 3} != {1, 2, 3};
+    !i;
+
+    {1, 2, 3}[2];
+    i[main];
+
+    i();
+
+}

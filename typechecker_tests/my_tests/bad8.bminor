@@ -1,0 +1,4 @@
+// resolver errors should appear, prevent typechecking
+
+x: integer = x;
+v: void;

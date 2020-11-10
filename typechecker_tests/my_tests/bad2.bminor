@@ -1,0 +1,22 @@
+// statements
+f: function void () = {
+    for(;1;)print; // 1
+
+    if('1') print; // 2
+
+    if(1)   print; // 3
+
+    a: array [4] integer = {1, 2, 3, 4};
+    
+    print a, f; // 5
+
+    return a; // 6
+    return true; // 7
+}
+
+g: function integer () = {
+    return true; // 8
+    return "string"; // 9
+    return {1, 2, 3}; // 10
+    return g; // 11 
+}

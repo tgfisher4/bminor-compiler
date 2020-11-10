@@ -1,0 +1,11 @@
+// basic decls and assignments
+i: integer = 5;
+b: boolean = true;
+c: char = 'c';
+s: string = "string";
+a: array [4] integer;
+d: array [2] string = {"Hello", "World"};
+
+f: function string ();
+g: function void (c:char, s:string, i:integer, a:array [] integer);
+

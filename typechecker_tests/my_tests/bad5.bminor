@@ -1,0 +1,23 @@
+// nested scopes
+
+main: function void () = {
+    x: integer = 'a';
+    { 
+        x: integer = 'a';
+    }
+    if(true){
+        x: integer = 'a';
+    }
+    else{
+        y: string = 15;
+    }
+    for(;;){
+        x: integer = 'a'; 
+    }
+
+    helper: function void ();
+
+    helper: function void () = {
+        return x;
+    }
+}

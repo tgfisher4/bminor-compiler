@@ -1,0 +1,10 @@
+// lvalue and const checks
+
+f:function void()={
+    x: integer;
+    5 = x;
+    5++;
+    "string"++;
+
+    a: array [x + 3] char;
+}

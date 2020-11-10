@@ -18,10 +18,14 @@ struct decl {
 
 struct decl * decl_create( char *name, struct type *type, struct expr *init_value, struct stmt *func_body);
 void decl_print( struct decl *d, int indents, char* term );
+void decl_print_no_asgn(struct decl *d);
 void decl_print_list( struct decl *d, int indents, char* term, char *delim );
 
 struct scope;
 int  decl_resolve( struct decl *d, struct scope *sc, bool am_param, bool verbose);
+
+void decl_typecheck( struct decl *d );
+void decl_list_typecheck( struct decl *d );
 
 #endif
 

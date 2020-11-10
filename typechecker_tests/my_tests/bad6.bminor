@@ -1,0 +1,10 @@
+// function types
+
+r: function function void () ();
+s: function array [] integer ();
+t: function void (f: function void ());
+
+// check recursive subtype errors
+u: array [2] function function array [2] void () ();
+v: function array [2] function function array [2] void () () ();
+aa: function void (a: array [5] void);

@@ -1,0 +1,14 @@
+// function types
+
+f: function integer(one: integer, two: string, three:char);
+f: function integer(one: integer, two: string, three:char);
+
+
+f: function integer(one: integer, two: string, three:char) = {
+    print one, two, three;
+}
+
+f: function integer(one: integer, two: string, three:char);
+
+// should get warning but not fail
+g: function void (a: array [5] array [10] integer);

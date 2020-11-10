@@ -36,5 +36,7 @@ void stmt_print_list( struct stmt *s, int indents, char *delim );
 struct scope;
 int  stmt_resolve( struct stmt *s, struct scope *sc, bool verbose);
 
+void stmt_typecheck( struct stmt *s, struct decl *enc_func);
+void stmt_list_typecheck( struct stmt *s, struct decl *enc_func);
 
 #endif

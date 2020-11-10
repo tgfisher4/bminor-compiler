@@ -1,0 +1,16 @@
+// statements
+
+continue: function boolean();
+main: function integer(argc: integer, argv: array [] string) = {
+
+    if(true) print;
+    for(;continue();) print;
+
+    x: integer;
+
+    print x, 5+5, "5+5", true || false;
+
+    return x;
+    return x + 7;
+    
+}

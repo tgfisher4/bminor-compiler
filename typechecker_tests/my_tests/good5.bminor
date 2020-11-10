@@ -1,0 +1,24 @@
+// nested scopes
+
+main: function integer () = {
+    x: integer = 4;
+    {
+        return x;
+    }
+
+    if(x < 43){
+        print x;
+    }
+    else{
+        print -x;
+    }
+
+    for(;;){
+        print x, x*x, x^5, 5^x;
+    }
+
+    {
+        x: integer = 40;
+        return x;
+    }
+}

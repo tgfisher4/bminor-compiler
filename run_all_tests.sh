@@ -25,3 +25,9 @@ cd resolver_tests
 ./run_all_tests.sh
 echo "=========================================="
 cd ..
+
+echo "Typechecker tests..."
+cd typechecker_tests
+./run_all_tests.sh
+echo "=========================================="
+cd ..
