@@ -1,139 +1,98 @@
-<!DOCTYPE html>
-<!-- saved from url=(0084)https://sakailogin.nd.edu/access/content/group/FA20-CSE-40243-CX-01/bminor-2020.html -->
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <meta http-equiv="Content-Style-Type" content="text/css"> 
-    <meta name="viewport" content="width=device-width">
-    <title>bminor-2020.html</title>
-    <link href="./bminor-2020_files/tool_base.css" type="text/css" rel="stylesheet" media="all">
-    <link href="./bminor-2020_files/tool.css" type="text/css" rel="stylesheet" media="all">
-    <script type="text/javascript" src="./bminor-2020_files/headscripts.js"></script>
-    <style>body { padding: 5px !important; }</style>
-  </head>
-  <body>
-<div class="header">
-<h1>Overview of B-Minor 2020</h1>
-</div>
+# Overview of B-Minor 2020
 
-<p>This is an informal specification of B-Minor 2020, a C-like language for use in an undergraduate compilers class. B-minor includes expressions, basic control flow, recursive functions, and strict type checking. It is object-code compatible with ordinary C and thus can take advantage of the standard C library, within its defined types. It is similar enough to C to feel familiar, but different enough to give you some sense of alternatives.</p>
+This is an informal specification of B-Minor 2020, a C-like language for use in an undergraduate compilers class. B-minor includes expressions, basic control flow, recursive functions, and strict type checking. It is object-code compatible with ordinary C and thus can take advantage of the standard C library, within its defined types. It is similar enough to C to feel familiar, but different enough to give you some sense of alternatives.
 
-<p>This document is deliberately informal: the most precise specification of a language is the compiler itself, and it is your job to write the compiler! It is your job to read the document carefully and extract a formal specification. You will certainly find elements that are unclear or incompletely specified, and you are encouraged to raise questions in class.</p>
+This document is deliberately informal: the most precise specification of a language is the compiler itself, and it is your job to write the compiler! It is your job to read the document carefully and extract a formal specification. You will certainly find elements that are unclear or incompletely specified, and you are encouraged to raise questions in class.
 
-<div class="change">Note that the definition of B-Minor changes slightly for each ND class.&nbsp; Changes from the textbook definition are <span style="background-color:#f1c40f">highlighted</span>.</div>
+Note that the definition of B-Minor changes slightly for each ND class. Changes from the [textbook](http://compilerbook.org) definition are **bolded**.
 
-<h2>Whitespace and Comments</h2>
+## Whitespace and Comments
 
-<p>In B-minor, whitespace is any combination of the following characters: tabs, spaces, linefeed (\n), and carriage return (\r). The placement of whitespace is not significant in B-minor. Both C-style and C++-style comments are valid in B-minor:</p>
+In B-minor, whitespace is any combination of the following characters: tabs, spaces, linefeed (`\n`), and carriage return (`\r`). The placement of whitespace is not significant in B-minor. Both C-style and C++-style comments are valid in B-minor:
 
-<pre>/* A C-style comment */
+```
+* A C-style comment */
 a=5; // A C++ style comment
-</pre>
+```
 
-<h2>Identifiers</h2>
+## Identifiers
 
-<p>Identifiers (i.e. variable and function names) may contain letters, numbers, and underscores and may be up to 256 characters long. Identifiers must begin with a letter or an underscore. These are examples of valid identifiers:</p>
+Identifiers (i.e. variable and function names) may contain letters, numbers, and underscores and may be up to 256 characters long. Identifiers must begin with a letter or an underscore. These are examples of valid identifiers:
 
-<pre>i x mystr fog123 BigLongName55
-</pre>
+```
+i x mystr fog123 BigLongName55
+```
 
-<p>The following strings are B-minor keywords and may not be used as identifiers:</p>
+The following strings are B-minor keywords and may not be used as identifiers:
 
-<pre>array boolean char else false for function if integer<strong> <span style="background-color:#f1c40f"></span></strong>print return string true void while
-</pre>
+```
+array boolean char else false for function if integer print return string true void while
+```
 
-<h2>Types</h2>
+## Types
 
-<p>B-minor has four atomic types: integers, booleans, characters, and strings. A variable is declared as a name followed by a colon, then a type and an optional initializer. For example:</p>
+B-minor has four atomic types: integers, booleans, characters, and strings. A variable is declared as a name followed by a colon, then a type and an optional initializer. For example:
 
-<pre>x: integer;
+```
+x: integer;
 y: integer = -123;
 b: boolean = false;
 c: char    = 'q';
 s: string  = "hello bminor\n";
-</pre>
+```
 
-<p>An <strong>integer</strong> is a signed 64 bit value <span class="change"><span style="background-color:#f1c40f">with an optional leading plus or minus.</span> </span></p>
+An `integer` is a signed 64 bit value **with an optional leading plus or minus.**
 
-<p><strong>boolean</strong> can take the literal values <strong>true</strong> or <strong>false</strong>.</p>
+`boolean` can take the literal values `true` or `false`.
 
-<p><strong>char</strong> is a single 8-bit ASCII character in single quotes.</p>
+`char` is a single 8-bit ASCII character in single quotes.
 
-<p><strong>string</strong> is a double-quoted constant string that is null-terminated and cannot be modified.</p>
+`string` is a double-quoted constant string that is null-terminated and cannot be modified.
 
-<p>Both <strong>char</strong> and <strong>string</strong> may contain the following backslash codes. <strong>\n</strong> indicates a linefeed (ASCII value 10), <strong>\0</strong> indicates a null (ASCII value zero), and a backslash followed by anything else indicates exactly the following character. <span style="background-color:#f1c40f">Both strings and identifiers may be up to 256 characters long.</span></p>
+Both `char` and `string` may contain the following backslash codes. `\n` indicates a linefeed (ASCII value 10), `\0` indicates a null (ASCII value zero), and a backslash followed by anything else indicates exactly the following character. **Both strings and identifiers may be up to 256 characters long.**
 
-<p>B-minor also supports arrays of a fixed size. They may be declared with no value, which causes them to contain all zeros:</p>
+B-minor also supports arrays of a fixed size. They may be declared with no value, which causes them to contain all zeros:
 
-<pre>a: array [5] integer;
-</pre>
+```
+a: array [5] integer;
+```
 
-<p>Or, the entire array may be given specific values:</p>
+Or, the entire array may be given specific values:
 
-<pre>a: array [5] integer = {1,2,3,4,5};
-</pre>
+```
+a: array [5] integer = {1,2,3,4,5};
+```
 
-<pre>months: array [12] string = {"January","February","March",...};
-</pre>
+```
+months: array [12] string = {"January","February","March",...};
+```
 
-<h2>&nbsp;</h2>
+## Expressions
 
-<h2>Expressions</h2>
+B-minor has many of the arithmetic operators found in C, with the same meaning and level of precedence:
 
-<p>B-minor has many of the arithmetic operators found in C, with the same meaning and level of precedence:</p>
+| operators       | description                              | precedence |
+|-----------------|------------------------------------------|------------|
+| () [] f()       | grouping, array subscript, function call | highest    |
+| ++ --           | postfix increment, decrement             |            |
+| - !             | unary negation, logical not              |            |
+| ^               | exponentiation                           |            |
+| * / %           | multiplication, division, modulus        |            |
+| + -             | addition, subtraction                    |            |
+| < <= > >= == != | comparison                               |            |
+| &&              | logical and                              |            |
+| \|\|            | logical or                               |            |
+| =               | assignment                               | lowest     |
 
-<table cellborder="1">
-	<tbody>
-		<tr>
-			<td>() [] f()</td>
-			<td>grouping, array subscript, function call</td>
-		</tr>
-		<tr>
-			<td>++ --</td>
-			<td>postfix increment, decrement</td>
-		</tr>
-		<tr>
-			<td>- !</td>
-			<td>unary negation, logical not</td>
-		</tr>
-		<tr>
-			<td>^</td>
-			<td>exponentiation</td>
-		</tr>
-		<tr>
-			<td>* / %</td>
-			<td>multiplication, division, modulus</td>
-		</tr>
-		<tr>
-			<td>+ -</td>
-			<td>addition, subtraction</td>
-		</tr>
-		<tr>
-			<td>&lt; &lt;= &gt; &gt;= == !=</td>
-			<td>comparison</td>
-		</tr>
-		<tr>
-			<td>&amp;&amp;</td>
-			<td>logical and</td>
-		</tr>
-		<tr>
-			<td>||</td>
-			<td>logical or</td>
-		</tr>
-		<tr>
-			<td>=</td>
-			<td>assignment</td>
-		</tr>
-	</tbody>
-</table>
 
-<p>&nbsp;</p>
+B-minor is *strictly typed*. This means that you may only assign a value to a variable (or function parameter) if the types match *exactly*. You cannot perform many of the fast-and-loose conversions found in C.
 
-<p>B-minor is <strong>strictly typed</strong>. This means that you may only assign a value to a variable (or function parameter) if the types match <strong>exactly</strong>. You cannot perform many of the fast-and-loose conversions found in C.</p>
+Following are examples of some (but not all) type errors:
 
-<p>Following are examples of some (but not all) type errors:</p>
-
-<pre>x: integer = 65;
+```
+x: integer = 65;
 y: char = 'A';
-if(x&gt;y) ... // error: x and y are of different types!
+if(x>y) ... // error: x and y are of different types!
 
 f: integer = 0;
 if(f) ...      // error: f is not a boolean!
@@ -145,64 +104,65 @@ writechar(a);  // error: a is not a char!
 b: array [2] boolean = {true,false};
 x: integer = 0;
 x = b[0];      // error: x is not a boolean!
-</pre>
+```
 
-<p>Following are some (but not all) examples of correct type assignments:</p>
+Following are some (but not all) examples of correct type assignments:
 
-<pre>b: boolean;
+```
+b: boolean;
 x: integer = 3;
 y: integer = 5;
-b = x&lt;y;     // ok: the expression x&lt;y is boolean
+b = x<y;     // ok: the expression x<y is boolean
 
 f: integer = 0;
 if(f==0) ...    // ok: f==0 is a boolean expression
 
 c: char = 'a';
 if(c=='a') ...  // ok: c and 'a' are both chars
-</pre>
+```
 
-<h2>Declarations and Statements</h2>
+## Declarations and Statements
 
-<p>In B-minor, you may declare global variables with optional constant initializers, function prototypes, and function definitions. Within functions, you may declare local variables (including arrays) with optional initialization expressions. Scoping rules are identical to C. Function definitions may not be nested.</p>
+In B-minor, you may declare global variables with optional constant initializers, function prototypes, and function definitions. Within functions, you may declare local variables (including arrays) with optional initialization expressions. Scoping rules are identical to C. Function definitions may not be nested.
 
-<p>Within functions, basic statements may be arithmetic expressions, return statements, print statements, if and if-else statements, for loops, or code within inner { } groups. B-minor does not have switch statements, while-loops, or do-while loops.</p>
+Within functions, basic statements may be arithmetic expressions, return statements, print statements, if and if-else statements, for loops, or code within inner { } groups. B-minor does not have switch statements, while-loops, or do-while loops.
 
-<p>The <tt>print</tt> statement is a little unusual because it is a statement and not a function call. <tt>print</tt> takes a list of expressions separated by commas, and prints each out to the console, like this:</p>
+The `print` statement is a little unusual because it is a statement and not a function call. `print` takes a list of expressions separated by commas, and prints each out to the console, like this:
 
-<pre>print "The temperature is: ", temp, " degrees\n";
-</pre>
+```
+print "The temperature is: ", temp, " degrees\n";
+```
 
-<h2>Functions</h2>
+## Functions
 
-<p>Functions are declared in the same way as variables, except giving a type of <tt>function</tt> followed by the return type, arguments, and code:</p>
+Functions are declared in the same way as variables, except giving a type of `function` followed by the return type, arguments, and code:
 
-<pre>square: function integer ( x: integer ) = {
+```
+square: function integer ( x: integer ) = {
 	return x^2;
 }
-</pre>
+```
 
-<p>The return type must be one of the four atomic types, or <tt>void</tt> to indicate no type. Function arguments may be of any type. <tt>integer</tt>, <tt>boolean</tt>, and <tt>char</tt> arguments are passed by value, while <tt>string</tt> and <tt>array</tt> arguments are passed by reference. As in C, arrays passed by reference have an indeterminate size, and so the length is typically passed as an extra argument:</p>
+The return type must be one of the four atomic types, or `void` to indicate no type. Function arguments may be of any type. `integer`, `boolean`, and `char` arguments are passed by value, while `string` and `array` arguments are passed by reference. As in C, arrays passed by reference have an indeterminate size, and so the length is typically passed as an extra argument:
 
-<pre>printarray: function void ( a: array [] integer, size: integer ) = {
+```
+printarray: function void ( a: array [] integer, size: integer ) = {
 	i: integer;
-	for( i=0;i&lt;size;i++) {
+	for( i=0;i<size;i++) {
 		print a[i], "\n";
 	}
 }
 
-</pre>
+```
 
-<p>A function prototype may be given, which states the existence and type of the function, but includes no code. This must be done if the user wishes to call an external function linked by another library. For example, to invoke the C function <tt>puts</tt>:</p>
+A function prototype may be given, which states the existence and type of the function, but includes no code. This must be done if the user wishes to call an external function linked by another library. For example, to invoke the C function `puts`:
 
-<pre>puts: function void ( s: string );
+```
+puts: function void ( s: string );
 
 main: function integer () = {
 	puts("hello world");
 }
-</pre>
+```
 
-<p>A complete program must have a <tt>main</tt> function that returns an integer. the arguments to <tt>main</tt> may either be empty, or use <tt>argc</tt> and <tt>argv</tt> as in C. (The declaration of <tt>argc</tt> and <tt>argv</tt> is left as an exercise to the reader.)</p>
-
-  
-
-</body></html>
+A complete program must have a `main` function that returns an integer. the arguments to `main` may either be empty, or use `argc` and `argv` as in C. (The declaration of `argc` and `argv` is left as an exercise to the reader.)
