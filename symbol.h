@@ -11,11 +11,12 @@ typedef enum {
 } symbol_t;
 
 struct symbol {
-	symbol_t kind;
+	symbol_t     kind;
 	struct type *type;
-	char *name;
-	int which;
-    bool func_defined;
+	char        *name;
+	int          which;
+    bool         func_defined;
+    int          reg;
 };
 
 struct symbol * symbol_create( symbol_t kind, struct type *type, char *name, bool func_defined );

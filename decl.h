@@ -12,6 +12,7 @@ struct decl {
 	struct type   *type;
 	struct expr   *init_value;
 	struct stmt   *func_body;
+    int            num_locals;
 	struct symbol *symbol;
 	struct decl   *next;
 };
@@ -26,6 +27,9 @@ int  decl_resolve( struct decl *d, struct scope *sc, bool am_param, bool verbose
 
 void decl_typecheck( struct decl *d );
 void decl_list_typecheck( struct decl *d );
+
+int decl_list_length( struct decl *d );
+void decl_code_gen( struct decl *d, FILE *output, bool is_global );
 
 #endif
 

@@ -10,6 +10,7 @@ struct scope {
     struct  scope *next;
     int     locals;
     int     params;
+    int     nested_locals;
 };
 
 struct symbol *scope_bind(struct scope *sc, const char *name, struct symbol *sym);

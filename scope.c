@@ -13,6 +13,7 @@ struct scope *scope_create(struct scope *next){
     sc->next = next;
     sc->locals = 0;
     sc->params = 0;
+    sc->nested_locals = 0;
     return sc;
 }
 
@@ -45,7 +46,10 @@ struct symbol *scope_bind(struct scope *sc, const char *name, struct symbol *sym
             sym->which = 0;
             break;
         case SYMBOL_LOCAL:
-            sym->which = sc->locals++;
+            sym->which = sc->locals;
+            // allocate sz spots for an array
+            // problem: do we know this is computable yet? not sure we know this until we typecheck...
+            sc->locals += sym->type->kind != TYPE_ARRAY ? 1 : expr_compute_const(sym->type->arr_sz);
             break;
         case SYMBOL_PARAM:
             sym->which = sc->params++;

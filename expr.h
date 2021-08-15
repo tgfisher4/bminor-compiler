@@ -90,4 +90,6 @@ int expr_resolve( struct expr *e, struct scope *sc, bool verbose );
 struct type *expr_typecheck( struct expr *e );
 int expr_eval_const_int( struct expr *e );
 void expr_print_type_and_expr(struct type *t, struct expr *e);
+
+void expr_code_gen( struct *s, FILE *output );
 #endif

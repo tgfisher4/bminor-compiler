@@ -15,7 +15,7 @@ comm=3
 assc=4
 strg=5
 
-enum=$( cat expr.h | \
+enum=$( cat ${PARENT}/../expr.h | \
         grep -A1000 'typedef enum {' | \
         grep -B1000 '} expr_t' | \
         grep '//' | \

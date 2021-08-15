@@ -20,6 +20,7 @@ struct decl * decl_create(char *ident, struct type *type, struct expr *init_valu
     d->func_body     = func_body;
     d->next          = NULL;
     d->symbol        = NULL;
+    d->num_locals    = 0;
 
     return d;
 }
@@ -99,6 +100,7 @@ int decl_resolve(struct decl *d, struct scope *sc, bool am_param, bool verbose){
     err_count += decl_resolve(d->type->params, inner_sc, true, verbose);
     // resolve function body
     err_count += stmt_resolve(d->func_body, inner_sc, verbose);
+    d->num_locals = inner_sc->locals + inner_sc->nested_locals;
     scope_exit(inner_sc);
 
     err_count += decl_resolve(d->next, sc, am_param, verbose);
@@ -162,3 +164,47 @@ void decl_list_typecheck(struct decl *d){
     decl_list_typecheck(d->next);
 }
 
+int decl_list_length( struct decl *d ){
+    if (!d) return 0;
+    return 1 + decl_list_length(d->next);
+}
+
+void decl_code_gen( struct decl *d, FILE *output, bool is_global ){
+    if (!d) return;
+    if( is_global ){
+        switch( d->type->kind ){
+            case TYPE_INTEGER:
+                fprintf(output, "%s:\n.quad %s\n", d->ident);
+                break;
+            case TYPE_STRING:
+                fprintf(output, "%s:\n.string %s\n", d->init_value->expr_data->str_data);
+                break;
+            case TYPE_FUNCTION:
+                fprintf(output, ".globl %s\n%s:\n", d->ident, d->ident);
+                /* preamble */
+                // new stack frame
+                fprintf(output, "\tPUSHQ    %rbp\n"
+                                "\tMOVQ     %rsp, %rbp\n");
+                // push argument registers
+                char *arg_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
+                for( int i = 0; i < 6; i++) fprintf(output, "\tPUSHQ    \%%s\n", arg_regs[i]);
+                // allocate locals
+                fprintf(output, "\tSUBQ     $%d", d->func_num_locals);
+                // push callee saved registers
+                char *callee_saved[] = { "rbx", "r12", "r13" ,"r14", "r15" };
+                for( int i = 0; i < 6; i++) fprintf(output, "\tPUSHQ    \%%s\n", calee_saved[i]);
+
+                /* func body */
+
+                /* postamble */
+                // pop callee saved registers
+                for( int i = 5; i >= 0; i--) fprintf(output, "\tPOPQ    \%%s", calee_saved[i]);
+                // destroy stack frame
+                fprintf(output, "\tMOVQ     %rbp, %rsp\n"
+                                "\tPOPQ     %rbp\n"
+                                "\tRET\n");
+                break;
+            default:
+                break;
+        }
+}

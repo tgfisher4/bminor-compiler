@@ -102,7 +102,9 @@ int stmt_resolve(struct stmt *s, struct scope *sc, bool verbose){
     // resolve inner scope if block
     sc = s->kind == STMT_BLOCK ? scope_enter(sc) : sc;
     err_count += stmt_resolve(s->body, sc, verbose);
+    int nested_locals = s->kind == STMT_BLOCK ? sc->locals + sc->nested_locals: 0;
     sc = s->kind == STMT_BLOCK ? scope_exit(sc) : sc;
+    sc->nested_locals += nested_locals;
 
     err_count += stmt_resolve(s->next, sc, verbose);
     return err_count;
@@ -172,8 +174,8 @@ void stmt_typecheck(struct stmt *s, struct decl *enc_func){
                 type_delete(type);
             }
             break;
-            case STMT_RETURN:
-                type = expr_typecheck(s->expr_list);
+        case STMT_RETURN:
+            type = expr_typecheck(s->expr_list);
             if( type && enc_func->type->subtype->kind == TYPE_VOID ){
                 // void function cannot return value
                 printf("[ERROR|typecheck] You attempted to return an expression of type ");
@@ -185,7 +187,9 @@ void stmt_typecheck(struct stmt *s, struct decl *enc_func){
                 printf("). You may not return a value from a function of return type void, but the return statement may be used without an expression to force an early exit.\n");
                 typecheck_errors++;
             }
-            else if( !type_equals(type, enc_func->type->subtype) ){
+            // null will not type_equal a struct type with subtype void: void functions have already passed their test
+            else if( enc_func->type->subtype->kind != TYPE_VOID 
+                     && !type_equals(type, enc_func->type->subtype) ){
                 // type of expression returned does not match function return type
                 printf("[ERROR|typecheck] You attempted to return an expression of type ");
                 expr_print_type_and_expr(type, s->expr_list);
