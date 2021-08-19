@@ -14,9 +14,9 @@ struct symbol {
 	symbol_t     kind;
 	struct type *type;
 	char        *name;
-	int          which;
+	int          stack_idx;
     bool         func_defined;
-    int          reg;
+    int          reg; // why is this here again?
 };
 
 struct symbol * symbol_create( symbol_t kind, struct type *type, char *name, bool func_defined );

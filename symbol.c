@@ -42,7 +42,7 @@ void symbol_delete(struct symbol *sym){
     free(sym);
 }
 
-char *symbol_to_location(struct symbol *sym, int num_args){
+char *symbol_to_location(struct symbol *sym, int reg_offset){
     if(!sym)    return NULL;
 
     switch(sym->kind){
@@ -51,15 +51,28 @@ char *symbol_to_location(struct symbol *sym, int num_args){
             break;
         case SYMBOL_PARAM:
         case SYMBOL_LOCAL:
-            // allows offsets up to 999
-            char *to_return = malloc(11);
-            // TODO: instead of allocating num_args spots on the stack, allocate min(6, num_args) spots for args and access any beyond 6 from caller's stack frame
-            // whichs start at 0, but our args/locals will start from the second item in stack
-            sprintf(to_return, "%d(%rbp)",
-                    -8 * (1 + which + (sym->kind == SYMBOL_LOCAL ? num_args : 0)));
-            return to_return;
+            // Use the sym->stack_idx we set up in scope_bind.
+            if( sym->type != TYPE_ARRAY ){
+                // 11 bytes allow offsets from -999 to 9999:
+                // len(X999(%rbp)\0) = 11.
+                char *location = malloc(11);
+                // TODO: err-check malloc
+                sprintf(location, "%d(%rbp)",
+                        -8 * sym->stack_idx);
+                return location;
+            } else {
+                // 20 bytes allow offsets from -999 to 9999:
+                // len(X999(%rbp, %rXX, 8)\0) = 20.
+                char * location = malloc(20);
+                // TODO: err-check malloc
+                sprintf(location, "%d(%rbp, %r%s, 8)",
+                        -8 * sym->stack_idx, scratch_name(reg_offset));
+                return location;
+            }
             break;
         default:
+            printf("Unexpected symbol kind: %d. Aborting...\n", sym->kind);
+            abort();
             break;
     }
 }

@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+int INIT_NEG_OFFSET = 1; // param 7 is found not directly above the rbp, but skipping one (above rbp is rip to which to return)
+int INIT_POS_OFFSET = 0; // param 0 is found directly below the rbp (*rbp = last rbp)
+
 struct scope *scope_create(struct scope *next){
     struct scope *sc = malloc(sizeof(*sc));
     if( !sc ){
@@ -43,16 +46,20 @@ struct symbol *scope_bind(struct scope *sc, const char *name, struct symbol *sym
     // else, set which
     switch(sym->kind){
         case SYMBOL_GLOBAL:
-            sym->which = 0;
-            break;
-        case SYMBOL_LOCAL:
-            sym->which = sc->locals;
-            // allocate sz spots for an array
-            // problem: do we know this is computable yet? not sure we know this until we typecheck...
-            sc->locals += sym->type->kind != TYPE_ARRAY ? 1 : expr_compute_const(sym->type->arr_sz);
+            sym->stack_idx = 0; // globals have no stack idx: this will be ignored
             break;
         case SYMBOL_PARAM:
-            sym->which = sc->params++;
+            // Note that we take the naive approach here of always saving args passed via regs to stack.
+            // A better approach would be to scan the function body and only save the reg args if needed (i.e., if the func calls another func).
+            if( ++sc->params > MAX_REG_ARGS ){
+                sym->stack_idx = -(INIT_NEG_OFFSET + (sc->params - MAX_REG_ARGS));
+            } else {
+                sym->stack_idx = INIT_POS_OFFSET + sc->params;
+            }
+            break;
+        case SYMBOL_LOCAL:
+            // place locals after params: use pre-inc since we want the result for the first local to be 1 (find last param location, then add 1)
+            sym->stack_idx = INIT_POS_OFFSET + min(6, sc->params) + ++sc->locals;
             break;
         default:
             puts("Uh-oh. Here come a flock o' Wah-Wahs");
