@@ -107,9 +107,10 @@ int decl_resolve(struct decl *d, struct scope *sc, bool am_param, bool verbose){
     return err_count;
 }
 
-void decl_typecheck( struct decl *d){
+void decl_typecheck( struct decl *d, bool is_global ){
     if( !d ) return;
 
+    // TODO: ensure init_values for globals are const
     // make sure we have valid type
     type_typecheck(d->type, d);
 
@@ -152,16 +153,26 @@ void decl_typecheck( struct decl *d){
         printf(" value. A variable may only store values of its type. Note that an array size is part of its type, and types must match exactly.\n");
         typecheck_errors++;
     }
+
+    // Check that a global's initializer is const
+    if( is_global && !init_value_type->is_const ){
+        printf("[ERROR|typecheck] You attempted to initialize a global variable (");
+        decl_print_no_asgn(d, 0, "");
+        printf(") with a non-constant expression (");
+        expr_print(d->init_value);
+        printf("). A global variable may only by initialized with a constant expression. However, you are free to assign non-constant values to global variables using the assignment operator in a function body.\n");
+        typecheck_errors++;
+    }
     type_delete(init_value_type);
 
     // typecheck function body
     stmt_list_typecheck(d->func_body, d);
 }
 
-void decl_list_typecheck(struct decl *d){
+void decl_list_typecheck(struct decl *d, bool is_global){
     if (!d) return;
-    decl_typecheck(d);
-    decl_list_typecheck(d->next);
+    decl_typecheck(d, is_global);
+    decl_list_typecheck(d->next, is_global);
 }
 
 int decl_list_length( struct decl *d ){
@@ -169,42 +180,166 @@ int decl_list_length( struct decl *d ){
     return 1 + decl_list_length(d->next);
 }
 
-void decl_code_gen( struct decl *d, FILE *output, bool is_global ){
+void decl_local_code_gen( struct decl *d, FILE *output, bool is_global ){
     if (!d) return;
-    if( is_global ){
-        switch( d->type->kind ){
-            case TYPE_INTEGER:
-                fprintf(output, "%s:\n.quad %s\n", d->ident);
-                break;
-            case TYPE_STRING:
-                fprintf(output, "%s:\n.string %s\n", d->init_value->expr_data->str_data);
-                break;
-            case TYPE_FUNCTION:
-                fprintf(output, ".globl %s\n%s:\n", d->ident, d->ident);
-                /* preamble */
-                // new stack frame
-                fprintf(output, "\tPUSHQ    %rbp\n"
-                                "\tMOVQ     %rsp, %rbp\n");
-                // push argument registers
-                char *arg_regs[] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
-                for( int i = 0; i < 6; i++) fprintf(output, "\tPUSHQ    \%%s\n", arg_regs[i]);
-                // allocate locals
-                fprintf(output, "\tSUBQ     $%d", d->func_num_locals);
-                // push callee saved registers
-                char *callee_saved[] = { "rbx", "r12", "r13" ,"r14", "r15" };
-                for( int i = 0; i < 6; i++) fprintf(output, "\tPUSHQ    \%%s\n", calee_saved[i]);
+    // A declaration without an initializer is used by earlier stages to
+    // determine local storage space needed, but requires no effort here.
+    if( !d->init_value ) return;
 
-                /* func body */
+    // Otherwise, this is just an assignment expression
+    struct expr *assignment = expr_create_oper(
+        EXPR_ASGN,
+        expr_create_identifier(d->ident),
+        expr_copy(d->init_value)
+    );
+    expr_code_gen(output, assignment);
 
-                /* postamble */
-                // pop callee saved registers
-                for( int i = 5; i >= 0; i--) fprintf(output, "\tPOPQ    \%%s", calee_saved[i]);
-                // destroy stack frame
-                fprintf(output, "\tMOVQ     %rbp, %rsp\n"
-                                "\tPOPQ     %rbp\n"
-                                "\tRET\n");
-                break;
-            default:
-                break;
-        }
+    // Clean-up: copying d->init_value allows us to expr_delete the whole assignment
+    scratch_free(assignment->reg);
+    expr_delete(assignment);
 }
+
+void decl_list_code_gen(FILE *output, struct decl *d, bool is_global){
+    if( !d ) return;
+    decl_code_gen(output, d, is_global);
+    decl_list_code_gen(output, d->next, is_global);
+}
+
+void decl_global_list_code_gen(FILE *output, struct decl *d){
+    fprintf(output, "    .globl %s\n", d->ident);
+
+    if( e->type->kind != TYPE_FUNCTION ){ // Non-function
+        struct expr *evald_init_value = expr_eval_const(d->init_value);
+        declare_global(output, evald_init_value, d->ident);
+        expr_delete(evald_init_value);
+    } else { // Function
+        fprintf(output, "%s:\n", d->ident);
+        /* preamble */
+        // Create new stack frame
+        fprintf(output, "    PUSHQ    %rbp\n"
+                        "    MOVQ     %rsp, %rbp\n");
+        // Push argument registers onto stack
+        for( int i = 0; func_arg_reg_name(i); i++)
+            fprintf(output, "    PUSHQ  %r%s\n",
+                    func_arg_reg_name(i));
+        // Allocate locals
+        fprintf(output, "    SUBQ     $%d",
+                8 * d->func_num_locals);
+        // Save callee-saved registers
+        for( int i = 0; i < num_callee_saved_regs; i++){
+            fprintf(output, "    PUSHQ    %r%s\n", callee_saved_regs[i]);
+        }
+
+        /* func body */
+        stmt_code_gen(d->func_body, d->ident);
+
+        /* postamble */
+        // Return statement will jump to this label, but needs function name
+        fprintf(output, "%s_postamble:\n", d->ident);
+        // Restore callee-saved registers (pop in opposite order bc LIFO)
+        for( int i = num_callee_caved_regs - 1; i >= 0; i--){
+            fprintf(output, "    POPQ    %r%s", calee_saved_regs[i]);
+        }
+
+        // Destroy stack frame
+        fprintf(output, "    MOVQ     %rbp, %rsp\n"
+                        "    POPQ     %rbp\n"
+                        "    RET\n");
+    }
+    decl_global_list_codegen(d->next);
+}
+
+void declare_global(FILE *output, struct expr *const_val, char *label){
+    // Know that const_val is const: only literals
+    int data;
+    switch( e->kind ){
+        case EXPR_BOOL_LIT:
+            data = (int) const_val->bool_data;
+        case EXPR_CHAR_LIT:
+            data = (int) const_val->char_data;
+        case EXPR_INT_LIT:
+            data = (int) const_val->int_data;
+            fprintf(output, "%s:\n"
+                            "    .quad %d\n",
+                    label,
+                    data);
+            break;
+        case EXPR_STR_LIT:
+            if( !const_val ){
+                // If no initial value, set as null pointer.
+                fprintf(output, "%s:\n"
+                                "    .quad  0\n",
+                        label);
+                break;
+            }
+            char *string_label = label_create();
+            fprintf(output, "    .section .rodata\n" // Place literal in rodata sxn
+                            "%s:\n"
+                            "    .string  \"%s\"\n"
+                            "    .data\n" // Place actual variable in data sxn
+                            "%s:\n"
+                            "    .quad  %s\n"
+                    string_label,
+                    const_value->data->str_data,
+                    label,
+                    string_label);
+            free(string_label);
+            break;
+        case EXPR_ARR_LIT:
+            // Emit array definition, then, if needed, define elements
+            struct expr *head = const_val->data->arr_elements;
+            // Base Case: immediate types (int/char/bool)
+            //   - data stored is just the element value
+            if( head->kind == EXPR_INT_LIT
+                || head->kind == EXPR_CHAR_LIT
+                || head->kind == EXPR_BOOL_LIT ){
+                fprintf(output, "%s:\n", label);
+                for( struct expr *ele = head; ele; ele = ele->next ){
+                    fprintf(output, "    .quad  %d\n",
+                            // Wasn't sure if pasting char/bool data into a union field
+                            // and then reading via a integer union field was the same
+                            // as casting, so went with the cast to be sure.
+                            (int)
+                            ele->kind == EXPR_INT_LIT
+                            ? ele->data->int_data
+                            : ele->kind == EXPR_CHAR_LIT
+                              ? ele->data->char_data
+                              : ele->data->bool_data
+                            );
+                }
+                break;
+            }
+
+            // Recursive Case: indirect types (arr/string)
+            //   - each element's data will be another label (a pointer)
+            // Determine array length
+            int arr_len = 0;
+            for(struct expr *curr = head; curr; curr = curr->next)
+                arr_len += 1;
+            char **ele_labels = malloc(sizeof(char *) * arr_sz);
+
+            // Declare array
+            for( int i = 0; i < arr_len; i++ ){
+                ele_labels[i] = label_create();
+                fprintf(output, "    .quad  %s\n", ele_labels[i]);
+            }
+
+            // Declare array elements
+            struct expr *curr = head;
+            for( int i = 0; i < arr_sz; i++, curr = curr->next ){
+                declare_global(output, curr, ele_labels[i]);
+            }
+
+            // Clean up
+            for( int i = 0; i < arr_sz; i++ ){
+                free(ele_labels[i]);
+            }
+            free(ele_labels);
+            break;
+        default:
+            fprintf("Unexpected expr kind in declare_global: %d. Aborting...\n", d->type->kind);
+            abort();
+            break;
+    }
+}
+

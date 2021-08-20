@@ -1,5 +1,6 @@
 #include "expr.h"
 #include "scope.h"
+#include "codegen_utils.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -110,6 +111,29 @@ struct expr *expr_create_empty(){
     return expr_create(EXPR_EMPTY, NULL);
 }
 
+struct expr *expr_copy(struct expr *e){
+    union expr_data *d = malloc(sizeof(*d));
+    memcpy(e->data, d);
+    return expr_create(e->kind, d);
+}
+
+void expr_delete(struct expr *e){
+    if( !e )  return;
+    bool is_atomic = e->kind == EXPR_INT_LIT
+                    || e->kind == EXPR_CHAR_LIT
+                    || e->kind == EXPR_BOOL_LIT
+                    || e->kind == EXPR_STR_LIT
+                    || e->kind == EXPR_IDENT;
+    if( !is_atomic ){
+        // Just interpreting the data as expr *:
+        // the operator_args is insignificant.
+        expr_delete(e->data->operator_args);
+    }
+    free(e->data);
+    expr_delete(e->next);
+    free(e);
+}
+
 int expr_resolve(struct expr *e, struct scope *sc, bool verbose){
     if( !e ) return 0;
 
@@ -189,6 +213,8 @@ struct type *expr_typecheck(struct expr *e){
     if( e->kind == EXPR_ARR_LIT ){
         struct type *expected_type = expr_typecheck(e->data->arr_elements);
         int sz = 1;
+        // An array is const if all of its elements are const.
+        bool is_const = true;
         for( struct expr *curr = e->data->arr_elements->next; curr; curr = curr->next, sz++ ){
             struct type *curr_type = expr_typecheck(curr);
             if( !type_equals(curr_type, expected_type) ){
@@ -200,10 +226,16 @@ struct type *expr_typecheck(struct expr *e){
                 printf(". You may only have elements of a single type in your array.\n");
                 typecheck_errors++;
             }
+            is_const = is_const && curr_type->is_const;
             type_delete(curr_type);
         }
-        struct type* to_return = type_create(TYPE_ARRAY, expected_type,
-                                    expr_create_integer_literal(sz), NULL);
+        //struct type* to_return = type_create(TYPE_ARRAY, expected_type,
+        //                            expr_create_integer_literal(sz), NULL);
+        struct type *to_return = type_create_array(
+            expected_type,
+            expr_create_integer_literal(sz),
+            is_const
+        );
         //type_delete(expected_type);
         return to_return;
     }
@@ -338,8 +370,10 @@ struct type *expr_typecheck(struct expr *e){
             break;
         case EXPR_ARR_ACC:
             to_return = type_copy(left_arg_type->subtype);
+            // why wouldn't an array have a subtype?
             if( !to_return ) to_return = type_create_atomic(TYPE_INTEGER, false, is_const);
             to_return->is_lvalue = true;
+            to_return->is_const_value = is_const;
             break;
         default:
             printf("Yikes: %d\n", e->kind);
@@ -396,6 +430,7 @@ void expr_code_gen(struct expr *e, FILE *output){
     switch(e->kind){
         case EXPR_EMPTY:
             //TODO ??
+            // Allocate a register so caller can unconditionally free?
             break;
         case EXPR_ASGN:
             // TODO: look into combining /extracting common functionality from EXPR_ASGN and EXPR_POST_INC/DEC
@@ -436,18 +471,19 @@ void expr_code_gen(struct expr *e, FILE *output){
         //  - needs some general clean up as well.
         case EXPR_OR:
             expr_code_gen(e->data->operator_args);
+            expr_code_gen(e->data->operator_args->next);
             e->reg = e->data->operator_args->reg; // fold left
-            fprintf(output, "ORQ %s, %s\n",
-                            scratch_name(e->data->operator_args->next->reg,
-                            e->data->operator_args->reg));
+            fprintf(output, "ORQ %r%s, %s\n",
+                            scratch_name(e->data->operator_args->next->reg),
+                            scratch_name(e->data->operator_args->reg));
             scratch_free(e->data->operator_args->next->reg);
             break;
         case EXPR_AND:
             expr_code_gen(e->data->operator_args);
             e->reg = e->data->operator_args->reg; // fold left
-            fprintf(output, "ANDQ %s, %s\n",
-                            scratch_name(e->data->operator_args->next->reg,
-                            e->data->operator_args->reg));
+            fprintf(output, "ANDQ %r%s, %s\n",
+                            scratch_name(e->data->operator_args->next->reg),
+                            scratch_name(e->data->operator_args->reg));
             scratch_free(e->data->operator_args->next->reg);
             break;
         case EXPR_LT:
@@ -457,96 +493,112 @@ void expr_code_gen(struct expr *e, FILE *output){
         case EXPR_EQ:     
         case EXPR_NOT_EQ: {
             expr_code_gen(e->data->operator_args);
+            expr_code_gen(e->data->operator_args->next);
+            e->reg = e->data->operator_args->reg; // fold left
+            char *tgt_reg  = scratch_name(e->reg);
 
             // compare operands
-            char *left_reg  = reg_to_name(e->data->operator_args->reg);
-            char *right_reg = reg_to_name(e->data->operator_args->next->reg);
-            fprintf(output, "CMP %s, %s\n",
-                            left_reg, right_reg);
+            fprintf(output, "CMP %r%s, %r%s\n",
+                            scratch_name(e->data->operator_args->reg),
+                            scratch_name(e->data->operator_args->next->reg));
 
             /* Premise: using labels to evaluate a comparison feels a little weird, and this was fun to think about.
-             * This is probably not the optimal setup (jumps are probably way faster), but was a fun thought experiment.
+             * This is probably not the optimal setup (jumps gotta be way faster), but was a fun thought experiment.
              * So, we grab the sign and zero flags from the comparison by copying the AH reg and setting the bits beside the flag to zero.
              * To do this, we use the logical shift as demonstrated below:
              * ----X--- ==> X---0000 ==> 0000000X
-             * Then, since we interpret any non-zero value as a true boolean, we can simply perform byte-scope boolean operatings on the
-             * sign and zero flags and leave the result floating in the register. */
+             * Thus, we store the sign and bit flags into individual bytes,
+             * and perform byte-scope boolean operatings between them.
+             * We leave the result floating in the bottom byte of the target reg,
+             * then AND the reg with $1 to clear all but the LSB,
+             * which holds the result of the operations on the sign and flag bits.
+             * Thus, the resulting quad reg will hold a non-zero value iff the
+             * result of the operations on the sign and flag bits was non-zero.
+             */
+
             // Move sign and zero flags into 8-bit regs
             // Construct sign and zero reg names (see x86 reg naming conventions)
 
-            // TODO: allocate space for zero_reg and sign_reg here, outside, unconditionally, and unconditionally free later
-            char *sign_reg, zero_reg;
-            char *tgt_name = scratch_name(left_reg);
-            if( tgt_name == "bx" ){ // others are 10,...,15
-                sign_reg = "BL";
-                zero_reg = "BH";
+            // Design flaw: want to encapsulate knowledge of scratch registers in codegen_utils, but this bit here requires intimiate knowledge of inner workings
+            // 2 = max(len(B), len(10), ..., len(15))
+            // 1 = max(len(L), len(H))
+            // 1 = \0
+            char *sign_reg = malloc(2 + 1 + 1);
+            char *zero_reg = malloc(2 + 1 + 1);
+            
+            // Split the tgt reg as our sign and zero regs
+            if( tgt_reg == "bx" ){
+                sprintf(sign_reg, "BL");
+                sprintf(zero_reg, "BH");
             }
-            else{
-                sprintf(sign_reg, "%sL", tgt_name);
-                sprintf(zero_reg, "%sH", tgt_name);
+            else { // others are 10,...,15
+                sprintf(sign_reg, "%sL", tgt_reg);
+                sprintf(zero_reg, "%sH", tgt_reg);
             }
             fprintf(output, "LAHF\n" // load status flags into AH reg
-                            "MOVB AH, \%%s\n" // copy to scratch
-                            "MOVB AH, \%%s\n" // copy to other scratch
+                            "MOVB AH, %r%s\n" // copy to one scratch
+                            "MOVB AH, %r%s\n" // copy to other scratch
                             // grab sign flag (idx 7: just shift right)
-                            "SHRB $7, \%%s%s\n" // logical shift fills in 0s
+                            "SHRB $7, %r%s%s\n" // logical shift: fills in 0s
                             // grab zero flag (idx 6: shift left 1, then right 7)
-                            "SHLB $1, \%%s\n"
-                            "SHRB $7, \%%s\n",
-                            left_reg, right_reg
+                            "SHLB $1, %r%s\n"
+                            "SHRB $7, %r%s\n",
                             sign_reg, zero_reg,
                             sign_reg,
                             zero_reg, zero_reg);
 
             switch(e->kind){
-                // zero:sign, so move result into sign and clear zero
+                // tgt reg = zero:sign, so move result into sign and clear zero
                 case EXPR_GT: // sign 0 AND zero 0
-                    fprintf(output, "NOTB \%%s\n"
-                                    "NOTB \%%s\n"
-                                    "ANDB \%%s, \%%s\n"
-                                    "ANDB $0, \%%s\n",
+                    fprintf(output, "NOTB %r%s\n" // !zero
+                                    "NOTB %r%s\n" // !sign
+                                    "ANDB %r%s, %r%s\n" // tgt <- !zero && !sign
+                                    "ANDQ $1, %r%s\n", // clear collateral
                                     zero_reg, sign_reg,
                                     zero_reg, sign_reg,
-                                    zero_reg);
+                                    tgt_reg);
                     break;
                 case EXPR_GT_EQ: // sign 0
-                    fprintf(output, "NOTB \%%s\n"
-                                    "ANDB $0, \%%s\n",
+                    fprintf(output, "NOTB %r%s\n" // tgt <- !sign
+                                    "ANDQ $1, %r%s\n", // clear collateral
                                     sign_reg,
-                                    zero_reg);
+                                    tgt_reg);
                     break;
                 case EXPR_LT: // sign 1
-                    fprintf(output, "ANDB $0, \%%s", zero_reg);
+                    fprintf(output, "ANDQ $1, %r%s", tgt_reg); // clear collateral
                     break;
                 case EXPR_LT_EQ: //sign 1 OR zero 1
-                    fprintf(output, "ORB \%%s, \%%s\n"
-                                    "ANDB $0, \%%s\n",
+                    fprintf(output, "ORB %r%s, %r%s\n" // tgt <- zero || sign
+                                    "ANDQ $1, \%%s\n", // clear collateral
                                     zero_reg, sign_reg,
-                                    zero_reg);
+                                    tgt_reg);
                     break;
                 case EXPR_EQ: // zero 1
-                    fprintf(output, "MOVB \%%s, \%%s\n"
-                                    "ANDB $0, \%%s\n",
+                    fprintf(output, "MOVB %r%s, %r%s\n" // tgt <- zero
+                                    "ANDQ $1, %r%s\n",  // clear collateral
                                     zero_reg, sign_reg,
-                                    zero_reg);
+                                    tgt_reg);
                     break;
                 case EXPR_NOT_EQ: // zero 0
-                    fprintf(output, "NOTB \%%s\n"
-                                    "MOVB \%%s, \%%s\n"
-                                    "ANDB $0, \%%s\n",
+                    fprintf(output, "NOTB %r%s\n" // !zero
+                                    "MOVB %r%s, %r%s\n" // tgt <- !zero
+                                    "ANDQ $1, %r%s\n", // clear collateral
                                     zero_reg,
                                     zero_reg, sign_reg,
-                                    zero_reg);
+                                    tgt_reg);
                     break;
-                default: break;
+                default:
+                    printf("Unexpected expr kind in bool code gen: %d. Aborting..."\n, e->kind);
+                    abort();
             }
-            e->reg = e->data->operator_args->reg; // fold left
             scratch_free(e->data->operator_args->next->reg);
+            free(sign_reg);
+            free(zero_reg);
         }
         case EXPR_ADD: 
         case EXPR_SUB:
-            // TODO: does this evaluate all operator_args?
             expr_code_gen(e->data->operator_args);
+            expr_code_gen(e->data->operator_args->next);
             // 4 - 3 ~ SUBQ 3 4, so always collapse into left reg
             fprintf(output, "%sQ %r%s, %r%s\n",
                     e->kind == EXPR_ADD ? "ADD" : "SUB",
@@ -562,10 +614,10 @@ void expr_code_gen(struct expr *e, FILE *output){
             // this makes it convenient to combine these cases.
             expr_code_gen(e->data->operator_args);
             expr_code_gen(e->data->operator_args->next);
-            e->reg = e->data->operator_args->reg; // follow left-folding convention
+            e->reg = e->data->operator_args->reg; //  fold left
 
             // 1. Place left operand into %rax
-            //    This is either the dividend (order matters) or a factor (order doesn't matter).
+            //    This is either the dividend (order matters: must be left) or a factor (order doesn't matter), so just always put left operand.
             fprintf(output, "MOVQ %r%s, %rax\n",
                             scratch_name(e->data->operator_args->reg));
 
@@ -582,7 +634,19 @@ void expr_code_gen(struct expr *e, FILE *output){
             scratch_free(e->data->operator_args->reg);
             break;
         case EXPR_EXP: 
-            // Call pow (need to convert ints to floats?)
+            // Call a special runtime pow (need to convert ints to floats?)
+ 
+            // Create copies that can be deleted in expr_delete
+            struct expr *base = expr_copy(e->data->operator_args);
+            struct expr *xp = expr_copy(e->data->operator_args->next);
+            base->next = xp;
+            struct expr *runtime_pow_call = expr_create_function_call(
+                expr_create_identifier("bminor_runtime_pow"),
+                base
+            );
+            expr_code_gen(runtime_pow_call);
+            e->reg = runtime_pow_call->reg;
+            expr_delete(runtime_pow_call); // also deletes base and xp
             break;
         case EXPR_NOT:
             expr_code_gen(e->data->operator_args);
@@ -690,24 +754,24 @@ void expr_code_gen(struct expr *e, FILE *output){
         case EXPR_FUNC_CALL:
             // 1. Save caller-saved registers (%r10, %r11).
             //    (Again, not concerned with optimizing for whether these are actually in use by the caller)
-            fprintf(output, "PUSHQ %r10\n");
-            fprintf(output, "PUSHQ %r11\n");
+            for( int i = 0; i < num_caller_saved_regs; i++ ){
+                fprintf(output, "PUSHQ %r%\n", caller_saved_regs[i]);
+            }
             
-            // 2. Load up to 6 arguments into the designated registers.
-            char *arg_idx_to_reg[] = {"di", "si", "dx", "cx", "8", "9"};
+            // 2. Load up first few arguments into the designated registers.
             struct expr *curr_arg = e->data->func_and_args->next;
-            for( int i = 0; i < 6 && curr_arg; i++, curr_arg = curr_arg->next ){
+            for( int i = 0; i < num_func_arg_regs && curr_arg; i++, curr_arg = curr_arg->next ){
                 expr_code_gen(curr_arg);
                 fprintf(output, "MOVQ %r%s, %r%s\n,
                         scratch_name(curr_arg->reg),
-                        arg_idx_to_reg[i]);
+                        func_arg_regs[i]);
                 scratch_free(curr_arg->reg);
             }
 
             // 3. Place the remaining arguments onto the caller stack frame, in reverse order.
             //    a. Count the number of remaining arguments.
             int rem_args = 0;
-            for( struct expr *rem_arg = curr_arg; rem_arg; rem_arg = rem_arg->next ){
+            for( struct expr *x = curr_arg; x; x = x->next ){
                 rem_args += 1;
             }
             //    b. Allocate stack space for the remaining arguments.
@@ -744,40 +808,46 @@ void expr_code_gen(struct expr *e, FILE *output){
                     scratch_name(e->reg));
             
             // 6. Restore caller-saved registers.
-            fprintf(output, "POPQ %r11\n");
-            fprintf(output, "POPQ %r10\n");
+            for( int i = num_caller_saved_regs - 1; i >= 0; i-- ){
+                fprintf(output, "POPQ %r%s\n", caller_saved_regs[i]);
+            }
             break;
         case EXPR_IDENT:
-            // symbol to addr
-            // move addr into reg
             char *var_loc = symbol_to_location(e->data->operator_args->ident_name, -1);
-            int reg = scratch_alloc();
-            fprintf(output, "MOVQ %s, %r%s\n", var_loc, reg_name(tmp_reg));
+            e->reg = scratch_alloc();
+            fprintf(output, "MOVQ %s, %r%s\n", var_loc, scratch_name(e->reg));
             free(var_loc);
-            e->reg = reg;
             break;
         case EXPR_INT_LIT:
             e->reg = scratch_alloc();
-            fprintf(output, "MOVQ %d, %r%s\n",
+            fprintf(output, "MOVQ $%d, %r%s\n",
                     e->data->int_data,
                     scratch_name(e->reg));
             break;
         case EXPR_STR_LIT:
-            // It seems we'll want some mechanism to gather the string literals found and place them in the data section.
-            // Likewise, it seems we'll need a way to map which label we used for which string literal to reference them later.
-            printf("no implementation for string literals rn, sorry\n");
-            abort();
+            // Switch sxn to rodata, insert string literal,
+            // then switch back to text and load the string literal.
+            e->reg = scratch_alloc();
+            char *str_label = label_create();
+            fprintf(output, ".section  .rodata\n" // switch to rodata sxn
+                            "%s:    .string \"%s\"\n"
+                            ".text\n" // switch back to text (code) sxn
+                            "MOVQ $%s, %r%s\n", // load data from new label
+                            str_label, e->data->str_data,
+                            str_label, scratch_name(e->reg));
+            free(str_label);
             break;
         case EXPR_CHAR_LIT:
             e->reg = scratch_alloc();
-            fprintf(output, "MOVQ %d, %r%s\n",
+            // cast bool_data to int and move it into the reg
+            fprintf(output, "MOVQ $%d, %r%s\n",
                     e->data->char_data,
                     scratch_name(e->reg));
             break;
         case EXPR_BOOL_LIT:
             e->reg = scratch_alloc();
-            // cast bool to int and move it into the reg
-            fprintf(output, "MOVQ %d, %r%s\n",
+            // cast bool_data to int and move it into the reg
+            fprintf(output, "MOVQ $%d, %r%s\n",
                     e->data->bool_data,
                     scratch_name(e->reg));
             break;
@@ -787,11 +857,10 @@ void expr_code_gen(struct expr *e, FILE *output){
             break;
     }
 
-    expr_code_gen(e->next);
+    //expr_code_gen(e->next);
 }
 
-
-// move this array to top eventually
+/* MOVED TO UTILS FILE
 bool  reg_in_use[7]     = { 0 };
 char *reg_name[7]       = { "bx", "10", "11", "12", "13", "14", "15" }
 int scratch_alloc(){
@@ -805,6 +874,7 @@ int scratch_alloc(){
 void scratch_free(int r){ reg_in_use[r] = 0; }
 
 char *scratch_name(int r){ return reg_name[r]; }
+*/
 
 void print_symm_binary_type_error(expr_t oper, char *expected_type, struct type *left_type, struct expr *left_expr, struct type *right_type, struct expr *right_expr){
     char postamble[BUFSIZ];
@@ -846,59 +916,119 @@ void print_binary_type_error(expr_t oper, char *postamble, struct type *left_typ
     printf("`). %s.\n", postamble);
 }
 
+#define eval_bin_op(op, intype, outtype) \
+    struct expr *to_return = expr_create_outtype_literal( \
+        l->data->intype_data \
+        op \
+        r->data->intype_data \
+    ); \
+    expr_delete(l); \
+    expr_delete(r); \
+    return to_return;
+
+struct expr *expr_eval_const(struct expr *e){
+    if( !e || e->kind == EXPR_EMPTY ) return NULL; // ??
+    // Literals
+    switch( e->kind ){
+        case EXPR_INT_LIT:
+        case EXPR_CHAR_LIT:
+        case EXPR_BOOL_LIT:
+        case EXPR_STR_LIT:
+            // Copy to allow unconditional freeing later
+            return expr_copy(e);
+        case EXPR_ARR_LIT:
+            struct expr *to_return = expr_create_array_literal(NULL);
+            struct expr *tail;
+            for( struct expr *ele = e->data->arr_elements; ele; ele = ele->next ){
+                struct expr *evald = expr_eval_const(ele);
+                // If first ele, set up to_return
+                if( ele == e->data->arr_elements ){
+                    to_return->data->arr_elements = evald;
+                // Otherwise, string evald along to tail
+                } else {
+                    tail->next = evald;
+                }
+                tail = evald;
+            }
+            return to_return;
+    }
+
+    // Operators
+    struct expr *l = expr_eval_const(e->data->operator_args);
+    struct expr *r = expr_eval_const(e->data->operator_args->next);
+    switch( e->kind ){
+        // ez cases
+        case EXPR_ADD:
+            eval_bin_op(+, int, integer);
+        case EXPR_SUB:
+            eval_bin_op(-, int, integer);
+        case EXPR_MUL:
+            eval_bin_op(*, int, integer);
+        case EXPR_DIV:
+            eval_bin_op(/, int, integer);
+        case EXPR_MOD:
+            eval_bin_op(%, int, integer);
+        case EXPR_OR:
+            eval_bin_op(||, bool, boolean);
+        case EXPR_AND:
+            eval_bin_op(&&, bool, boolean);
+        case EXPR_LT:
+            eval_bin_op(<, int, boolean);
+        case EXPR_LT_EQ:
+            eval_bin_op(<=, int, boolean);
+        case EXPR_GT:
+            eval_bin_op(>, int, boolean);
+        case EXPR_GT_EQ:
+            eval_bin_op(>=, int, boolean);
+        // interesting cases
+        case EXPR_ASGN:
+            expr_delete(l);
+            return r;
+        case EXPR_EQ:
+            // Compare literal operands, interpreted as integers.
+            // Note that this means arrays and strings with same contents
+            // will NOT evaluate to equal.
+            // This is how string/array comparison works at runtime, too.
+            eval_bin_op(==, int, boolean);
+        case EXPR_NOT_EQ:
+            // See comment above
+            eval_bin_op(!=, int, boolean);
+        case EXPR_ADD_ID:
+            return r;
+        case EXPR_ADD_INV:
+            struct expr *l = expr_create_integer_literal(0);
+            eval_bin_op(-, int, integer); 
+        case EXPR_EXP:
+            struct expr *to_return = expr_create_integer_literal(
+                // implicitly casting from int to float to int
+                pow(l->data->int_data, r->data->int_data);
+            );
+            expr_delete(l);
+            expr_delete(r);
+            return to_return;
+        case EXPR_ARR_ACC:
+            int idx = r->data->int_data;
+            struct *expr ele = l->data->arr_elements;
+            // If idx is out of range, behavior is already undefined,
+            // so just truncating to last element is easiest here.
+            for( int i = 0; i < idx && ele; i++ ){
+                ele = ele->next;
+            }
+            struct expr *to_return = expr_copy(ele);
+            expr_delete(l);
+            expr_delete(r);
+            return to_return;
+        default:
+            printf("Unhandled expr kind in expr_eval_const: %d. Aborting...\n", e->kind);
+            abort();
+    }
+}
+
 void expr_print_type_and_expr(struct type *t, struct expr *e){
     type_print(t);
     printf(" (`");
     expr_print(e);
     printf("`)");
-}
-
-int expr_eval_const_int(struct expr *e){
-    // return dummy value that will be ignored
-    if( !e || e->kind == EXPR_EMPTY )   return 0;
-
-    if( e->kind == EXPR_INT_LIT )       return e->data->int_data;
-    
-    // won't necessarily use these (i.e. unary operators), but I'll set em up here
-    int l = expr_eval_const_int(e->data->operator_args);
-    int r = expr_eval_const_int(e->data->operator_args->next);
-
-    switch( e->kind ){
-        case EXPR_ASGN:
-            return r;
-            break;
-        case EXPR_ADD:
-            return l + r;
-            break;
-        case EXPR_SUB:
-            return l - r;
-            break;
-        case EXPR_MUL:
-            return l * r;
-            break;
-        case EXPR_DIV:
-            return l / r;
-            break;
-        case EXPR_MOD:
-            return l % r;
-            break;
-        case EXPR_EXP:
-            return pow(l, r);
-            break;
-        case EXPR_ADD_ID:
-            return r;
-            break;
-        case EXPR_ADD_INV:
-            return -r;
-            break;
-        default:
-            printf("Expr eval failed for expr: ");
-            expr_print(e);
-            printf("\n");
-            break;
-    }
-    // shouldn't get here, but just in case
-    return 0;
 }
 
 bool is_vowel(char c){

@@ -117,7 +117,7 @@ void stmt_typecheck(struct stmt *s, struct decl *enc_func){
     struct expr *expr;
     switch(s->kind){
         case STMT_DECL:
-            decl_typecheck(s->decl);
+            decl_typecheck(s->decl, false);
             if( s->decl->type->kind == TYPE_FUNCTION ){
                 // cannot declare function inside function
                 printf("[ERROR|typecheck] You attempted to declare a function (`");
@@ -215,4 +215,94 @@ void stmt_list_typecheck(struct stmt *s, struct decl *enc_func){
     if (!s) return;
     stmt_typecheck(s, enc_func);
     stmt_list_typecheck(s->next, enc_func);
+}
+
+void stmt_code_gen(FILE *output, struct stmt *s, char *enc_func){
+    if( !s ) return;
+    switch( s->kind ){
+        case STMT_DECL:
+            decl_code_gen(s->decl, false);
+            break;
+        case STMT_EXPR:
+            expr_code_gen(s->expr_list);
+            scratch_free(s->expr_list->reg);
+            break;
+        case STMT_IF_ELSE:
+            expr_code_gen(e->expr_list);
+            fprintf(output, "CMP %r%s, $0\n",
+                    scratch_name(e->expr_list));
+            scratch_free(e->expr_list->reg);
+            char *else_label = label_create();
+            fprintf(output, "JE %s\n", else_label);
+            stmt_code_gen(s->body);
+            fprintf(output, "%s:\n", else_label);
+            if( s->next ){ // Generate else block if present
+                stmt_code_gen(s->next);
+            }
+            break;
+        case STMT_FOR:
+            char *test_label = label_create();
+            char *exit_label = label_create();
+            // Initializer
+            expr_code_gen(s->expr_list);
+            scratch_free(s->expr_list->reg); // discard result: only side effects relevant
+            // Test condition
+            fprintf(output, "%s:\n", test_label);
+            expr_code_gen(s->expr_list->next);
+            fprintf(output, "CMP %r%s, $0\n"
+                            "JE %s\n,
+                    scratch_name(s->expr_list->next->reg),
+                    exit_label);
+            scratch_free(s->expr_list->next->reg);
+            // Loop body
+            stmt_code_gen(s->body);
+            // Step
+            expr_code_gen(s->expr_list->next->next);
+            scratch_free(s->expr_list->next->next->reg); // discard result: only side effects relevant
+            // Exit label
+            fprintf(output, "%s:\n", exit_label);
+            break;
+        case STMT_PRINT:
+            for( struct expr *e = s->expr_list; e; e = e->next ){
+                // TODO: figure out runtime stuff
+                // Transform each element into a call to the runtime print funcs
+                struct type *t = expr_typecheck(e);
+                // 6 = len(print_),
+                // 7 = max(len(integer), len(char), len(string), len(boolean)
+                // 1 = \0
+                char *func_name[6 + 7 + 1];
+                sprintf(func_name, "print_%s", type_t_to_str(type_str));
+                struct expr *arg = expr_copy(e);
+                arg->next = NULL; // o/w, the print_call will seem to include several args
+                struct expr *print_call = expr_create_function_call(
+                    expr_create_identifier(func_name),
+                    arg
+                );
+                expr_code_gen(print_call);
+                scratch_free(print_call);
+                expr_delete(print_call); // also deletes arg
+                type_delete(t);
+            }
+            break;
+        case STMT_RETURN:
+            expr_code_gen(s->expr_list);
+            fprintf(output, "MOVQ %r%s, %rax\n"
+                            "JMP %s_postamble,
+                    scratch_name(s->expr_list->reg),
+                    enc_func);
+            scratch_free(s->expr_list->reg);
+            break;
+        case STMT_BLOCK:
+            stmt_list_code_gen(s->body);
+            break;
+        default:
+            printf("Unexpected stmt kind: %d. Aborting...\n", s->kind);
+            abort();
+    }
+}
+
+void stmt_list_code_gen(FILE *output, struct stmt *s, char *enc_func){
+    if( !s ) return;
+    stmt_code_gen(output, s, enc_func);
+    stmt_list_code_gen(output, s->next, enc_func);
 }
