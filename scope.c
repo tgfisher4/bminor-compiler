@@ -1,6 +1,8 @@
 #include "scope.h"
+#include "code_gen_utils.h"
 #include <stdio.h>
 #include <stdlib.h>
+
 
 int INIT_NEG_OFFSET = 1; // param 7 is found not directly above the rbp, but skipping one (above rbp is rip to which to return)
 int INIT_POS_OFFSET = 0; // param 0 is found directly below the rbp (*rbp = last rbp)
@@ -46,20 +48,21 @@ struct symbol *scope_bind(struct scope *sc, const char *name, struct symbol *sym
     // else, set which
     switch(sym->kind){
         case SYMBOL_GLOBAL:
-            sym->stack_idx = 0; // globals have no stack idx: this will be ignored
+            sym->frame_idx = 0; // globals are frameless: this will be ignored
             break;
         case SYMBOL_PARAM:
             // Note that we take the naive approach here of always saving args passed via regs to stack.
             // A better approach would be to scan the function body and only save the reg args if needed (i.e., if the func calls another func).
-            if( ++sc->params > MAX_REG_ARGS ){
-                sym->stack_idx = -(INIT_NEG_OFFSET + (sc->params - MAX_REG_ARGS));
+            if( ++sc->params > num_func_arg_regs ){
+                sym->frame_idx = -(INIT_NEG_OFFSET + (sc->params - num_func_arg_regs));
             } else {
-                sym->stack_idx = INIT_POS_OFFSET + sc->params;
+                sym->frame_idx = INIT_POS_OFFSET + sc->params;
             }
             break;
         case SYMBOL_LOCAL:
             // place locals after params: use pre-inc since we want the result for the first local to be 1 (find last param location, then add 1)
-            sym->stack_idx = INIT_POS_OFFSET + min(6, sc->params) + ++sc->locals;
+            // (Ab)using the fact here that all params are processed before any locals.
+            sym->frame_idx = INIT_POS_OFFSET + MIN(6, sc->params) + ++sc->locals;
             break;
         default:
             puts("Uh-oh. Here come a flock o' Wah-Wahs");

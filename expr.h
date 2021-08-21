@@ -3,6 +3,7 @@
 
 #include "symbol.h"
 #include <stdbool.h>
+#include <stdio.h> // FILE *
 
 typedef enum {
     /* EXPR_NAME       @ precedence @   commutative? @  associativity @   string  @ */
@@ -66,6 +67,7 @@ struct expr {
     union expr_data *data;
 	struct symbol *symbol;
     struct expr *next;
+    int reg;
 };
 
 struct expr * expr_create( expr_t kind, union expr_data *data);
@@ -81,6 +83,9 @@ struct expr * expr_create_array_access( struct expr *array, struct expr *index )
 struct expr * expr_create_function_call( struct expr *function, struct expr *arg_list );
 struct expr * expr_create_empty();
 
+struct expr * expr_copy(struct expr *e);
+void expr_delete(struct expr *e);
+
 void expr_print( struct expr *e );
 void expr_print_list( struct expr *e, char *delim );
 
@@ -88,8 +93,8 @@ struct scope;
 int expr_resolve( struct expr *e, struct scope *sc, bool verbose );
 
 struct type *expr_typecheck( struct expr *e );
-int expr_eval_const_int( struct expr *e );
+struct expr *expr_eval_const( struct expr *e );
 void expr_print_type_and_expr(struct type *t, struct expr *e);
 
-void expr_code_gen( struct *s, FILE *output );
+void expr_code_gen( FILE *output, struct expr *e );
 #endif

@@ -115,35 +115,40 @@ void type_typecheck(struct type *t, struct decl *context){
         
         // check that size, if present, is constant and integer
         struct type *arr_sz_type = expr_typecheck(t->arr_sz);
+        // An array size must be an integer.
         if( arr_sz_type && arr_sz_type->kind != TYPE_INTEGER ){
-            // array size must be integer
             printf("[ERROR|typecheck] You attempted to declare an array with a non-integer size (`");
             decl_print_no_asgn(context);
-            printf("`). You must specify a fixed (does not use variables), positive, integer size in an array declaration.\n");
+            printf("`). You must specify a constant (does not use variables), positive, integer size in an array declaration.\n");
             typecheck_errors++;
         }
+        // An array size must be constant.
         else if( arr_sz_type && !arr_sz_type->is_const_value ){
-            // array size must be constant/fixed
             printf("[ERROR|typecheck] You attempted to declare an array with a variable size (`");
             decl_print_no_asgn(context);
-            printf("`). Sorry, but BMinor does not currently support variable size arrays. You must specify a fixed (does not use variables), positive, integer size in an array declaration.\n");
+            printf("`). Sorry, but BMinor does not currently support variable size arrays. You must specify a constant (does not use variables), positive, integer size in an array declaration.\n");
             typecheck_errors++;
         }
-        else if( arr_sz_type && expr_eval_const_int(t->arr_sz) <= 0 ){
+        // An array size must be positive.
+        else if( arr_sz_type ){
+            struct expr *sz = expr_eval_const(t->arr_sz); // will be a integer literal
+            if( sz->data->int_data > 0 ) goto cleanup_sz; // passed the test
+
             printf("[ERROR|typecheck] You attempted to declare an array with size %d (`",
-                    expr_eval_const_int(t->arr_sz));
+                    sz->data->int_data);
             decl_print_no_asgn(context);
-            printf("`). You must specify a fixed (does not use variables), positive, integer size in an array declaration.\n");
+            printf("`). You must specify a constant (does not use variables), positive, integer size in an array declaration.\n");
             typecheck_errors++;
-            
+                cleanup_sz:
+            expr_delete(sz);
         }
-        // we'll make sure it's the CORRECT size in the init_value check
+        // We'll make sure it's the CORRECT size in the decl typecheck.
         type_delete(arr_sz_type);
 
         if( t->subtype->kind == TYPE_VOID ){
-            printf("[ERROR|typecheck] You attempted to declare an array of void objects (`");
+            printf("[ERROR|typecheck] You attempted to declare an array of void elements (`");
             decl_print_no_asgn(context);
-            printf("`). The void type may only be used as the return type for a function which returns nothing. It is meaningless otherwise: an array of void objects makes no sense.\n");
+            printf("`). The void type may only be used as a placeholder for the return type of a function which returns nothing. It is meaningless otherwise: an array of void elements makes no sense.\n");
         }
     }
 
@@ -173,8 +178,14 @@ bool type_equals(struct type *t, struct type *s){
         int s_sz = 0;
         if( t_sz_type->is_const_value && t_sz_type->kind == TYPE_INTEGER
          && s_sz_type->is_const_value && s_sz_type->kind == TYPE_INTEGER ){
-            t_sz = expr_eval_const_int(t->arr_sz);
-            s_sz = expr_eval_const_int(s->arr_sz);
+            struct expr *t_sz_expr = expr_eval_const(t->arr_sz);
+            struct expr *s_sz_expr = expr_eval_const(s->arr_sz);
+            // Can assume the sz expr is an integer literal:
+            // the only expr kind that is constant and integer is integer literal
+            t_sz = t_sz_expr->data->int_data;
+            s_sz = s_sz_expr->data->int_data;
+            expr_delete(t_sz_expr);
+            expr_delete(s_sz_expr);
         }
         type_delete(t_sz_type);
         type_delete(s_sz_type);

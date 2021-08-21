@@ -4,6 +4,7 @@
 
 #include "decl.h"
 #include <stdbool.h>
+#include <stdio.h> // FILE *
 
 typedef enum {
 	STMT_DECL,
@@ -39,6 +40,6 @@ int  stmt_resolve( struct stmt *s, struct scope *sc, bool verbose);
 void stmt_typecheck( struct stmt *s, struct decl *enc_func);
 void stmt_list_typecheck( struct stmt *s, struct decl *enc_func);
 
-void stmt_code_gen( struct stmt *s, FILE *output );
-
+void stmt_code_gen( FILE *output, struct stmt *s, char *enc_func);
+void stmt_list_code_gen(FILE *output, struct stmt *s, char *enc_func);
 #endif

@@ -5,6 +5,8 @@
 #include "hash_table.h"
 #include <stdbool.h>
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 struct scope {
     struct  hash_table *table;
     struct  scope *next;

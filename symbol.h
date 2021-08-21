@@ -14,9 +14,9 @@ struct symbol {
 	symbol_t     kind;
 	struct type *type;
 	char        *name;
-	int          stack_idx;
+	int          frame_idx;
     bool         func_defined;
-    int          reg; // why is this here again?
+    //int          reg; // why is this here again?
 };
 
 struct symbol * symbol_create( symbol_t kind, struct type *type, char *name, bool func_defined );
@@ -24,5 +24,7 @@ struct symbol * symbol_create( symbol_t kind, struct type *type, char *name, boo
 void symbol_print(struct symbol *sym);
 
 void symbol_delete(struct symbol *sym);
+
+char *symbol_to_location(struct symbol *sym, int reg_offset);
 
 #endif

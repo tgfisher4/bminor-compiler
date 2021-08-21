@@ -1,6 +1,6 @@
 #include "expr.h"
 #include "scope.h"
-#include "codegen_utils.h"
+#include "code_gen_utils.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -40,6 +40,7 @@ struct expr * expr_create(expr_t expr_type, union expr_data *data){
     e->data = data;
     e->next = NULL;
     e->symbol = NULL;
+    e->reg = -1; // no sane default here
 
     return e;
 }
@@ -113,7 +114,7 @@ struct expr *expr_create_empty(){
 
 struct expr *expr_copy(struct expr *e){
     union expr_data *d = malloc(sizeof(*d));
-    memcpy(e->data, d);
+    memcpy(d, e->data, sizeof(*d));
     return expr_create(e->kind, d);
 }
 
@@ -226,17 +227,16 @@ struct type *expr_typecheck(struct expr *e){
                 printf(". You may only have elements of a single type in your array.\n");
                 typecheck_errors++;
             }
-            is_const = is_const && curr_type->is_const;
+            is_const = is_const && curr_type->is_const_value;
             type_delete(curr_type);
         }
-        //struct type* to_return = type_create(TYPE_ARRAY, expected_type,
-        //                            expr_create_integer_literal(sz), NULL);
-        struct type *to_return = type_create_array(
-            expected_type,
-            expr_create_integer_literal(sz),
-            is_const
+        struct type* to_return = type_create(
+                TYPE_ARRAY,
+                expected_type,
+                expr_create_integer_literal(sz),
+                NULL
         );
-        //type_delete(expected_type);
+        to_return->is_const_value = is_const;
         return to_return;
     }
 
@@ -418,7 +418,7 @@ void expr_typecheck_func_args(struct expr *args, struct decl *params, char *func
     expr_typecheck_func_args(args->next, params->next, func_name);
 }
 
-void expr_code_gen(struct expr *e, FILE *output){
+void expr_code_gen(FILE *output, struct expr *e){
     if (!e) return;
 
     // In general, we will collapse registers left.
@@ -429,10 +429,10 @@ void expr_code_gen(struct expr *e, FILE *output){
     // So collapsing into the left arg creates a consistent collapsing scheme among all operators.
     switch(e->kind){
         case EXPR_EMPTY:
-            //TODO ??
-            // Allocate a register so caller can unconditionally free?
+            // This should never be called:
+            // unary operators should just not code_gen for their empty operand.
             break;
-        case EXPR_ASGN:
+        case EXPR_ASGN: {
             // TODO: look into combining /extracting common functionality from EXPR_ASGN and EXPR_POST_INC/DEC
             //   - memory address computation is the same
             // We have two lvalues in B-minor: variables and array elements (x or a[i]).
@@ -442,22 +442,22 @@ void expr_code_gen(struct expr *e, FILE *output){
             struct expr *lvalue = e->data->operator_args;
             char *mem_addr;
             if( lvalue->kind == EXPR_ARR_ACC ){
-                struct symbol *sym = lvalue->data->operator_args->symbol  // the array symbol
-                expr_code_gen(lvalue->data->operator_args->next); // resolve index
-                offset_reg = lvalue->data->operator_args->next->reg;
+                struct symbol *sym = lvalue->data->operator_args->symbol;  // the array symbol
+                expr_code_gen(output, lvalue->data->operator_args->next); // resolve index
+                int offset_reg = lvalue->data->operator_args->next->reg;
                 mem_addr = symbol_to_location(sym, offset_reg);
                 scratch_free(offset_reg);
             } else if( lvalue->kind  == EXPR_IDENT ){
                 struct symbol *sym = lvalue->symbol; // the ident symbol
-                mem_addr = symbol_to_location(sym, 0); // second arg ignored since symbol type is int (not array)
+                mem_addr = symbol_to_location(sym, -1);
             } else {
                 printf("Unexpected lvalue kind: %d. Aborting...\n", lvalue->kind);
                 abort();
             }
 
             // 2. Move assigned value into memory address.
-            expr_code_gen(e->data->operator_args); // this won't cause any complications (unintended side effects), will it?
-            fprintf(output, "MOVQ %r%s, %s\n",
+            expr_code_gen(output, e->data->operator_args);
+            fprintf(output, "MOVQ %%r%s, %s\n",
                     scratch_name(e->data->operator_args->next->reg),
                     mem_addr);
 
@@ -466,39 +466,35 @@ void expr_code_gen(struct expr *e, FILE *output){
 
             free(mem_addr); // clean up symbol_to_location's allocation
             break;
+        }
         // TODO: combine OR, AND, ADD, SUB operators using an expr_t_to_inst function or giant ternary?
-        //  - or even just combine OR and AND? at the least, groups like operators.
-        //  - needs some general clean up as well.
         case EXPR_OR:
-            expr_code_gen(e->data->operator_args);
-            expr_code_gen(e->data->operator_args->next);
+        case EXPR_AND: {
+            expr_code_gen(output, e->data->operator_args);
+            expr_code_gen(output, e->data->operator_args->next);
             e->reg = e->data->operator_args->reg; // fold left
-            fprintf(output, "ORQ %r%s, %s\n",
+            fprintf(output, "%sQ %%r%s, %%r%s\n",
+                            e->kind == EXPR_OR
+                            ? "OR"
+                            : "AND",
                             scratch_name(e->data->operator_args->next->reg),
                             scratch_name(e->data->operator_args->reg));
             scratch_free(e->data->operator_args->next->reg);
             break;
-        case EXPR_AND:
-            expr_code_gen(e->data->operator_args);
-            e->reg = e->data->operator_args->reg; // fold left
-            fprintf(output, "ANDQ %r%s, %s\n",
-                            scratch_name(e->data->operator_args->next->reg),
-                            scratch_name(e->data->operator_args->reg));
-            scratch_free(e->data->operator_args->next->reg);
-            break;
+        }
         case EXPR_LT:
         case EXPR_LT_EQ:
         case EXPR_GT:
         case EXPR_GT_EQ: 
         case EXPR_EQ:     
         case EXPR_NOT_EQ: {
-            expr_code_gen(e->data->operator_args);
-            expr_code_gen(e->data->operator_args->next);
+            expr_code_gen(output, e->data->operator_args);
+            expr_code_gen(output, e->data->operator_args->next);
             e->reg = e->data->operator_args->reg; // fold left
             char *tgt_reg  = scratch_name(e->reg);
 
             // compare operands
-            fprintf(output, "CMP %r%s, %r%s\n",
+            fprintf(output, "CMP %%r%s, %%r%s\n",
                             scratch_name(e->data->operator_args->reg),
                             scratch_name(e->data->operator_args->next->reg));
 
@@ -523,11 +519,13 @@ void expr_code_gen(struct expr *e, FILE *output){
             // 2 = max(len(B), len(10), ..., len(15))
             // 1 = max(len(L), len(H))
             // 1 = \0
-            char *sign_reg = malloc(2 + 1 + 1);
-            char *zero_reg = malloc(2 + 1 + 1);
+            //char *sign_reg = malloc(2 + 1 + 1);
+            //char *zero_reg = malloc(2 + 1 + 1);
+            char sign_reg[2 + 1 + 1];
+            char zero_reg[2 + 1 + 1];
             
             // Split the tgt reg as our sign and zero regs
-            if( tgt_reg == "bx" ){
+            if( !strcmp(tgt_reg, "bx") ){
                 sprintf(sign_reg, "BL");
                 sprintf(zero_reg, "BH");
             }
@@ -536,13 +534,13 @@ void expr_code_gen(struct expr *e, FILE *output){
                 sprintf(zero_reg, "%sH", tgt_reg);
             }
             fprintf(output, "LAHF\n" // load status flags into AH reg
-                            "MOVB AH, %r%s\n" // copy to one scratch
-                            "MOVB AH, %r%s\n" // copy to other scratch
+                            "MOVB AH, %%r%s\n" // copy to one scratch
+                            "MOVB AH, %%r%s\n" // copy to other scratch
                             // grab sign flag (idx 7: just shift right)
-                            "SHRB $7, %r%s%s\n" // logical shift: fills in 0s
+                            "SHRB $7, %%r%s\n" // logical shift: fills in 0s
                             // grab zero flag (idx 6: shift left 1, then right 7)
-                            "SHLB $1, %r%s\n"
-                            "SHRB $7, %r%s\n",
+                            "SHLB $1, %%r%s\n"
+                            "SHRB $7, %%r%s\n",
                             sign_reg, zero_reg,
                             sign_reg,
                             zero_reg, zero_reg);
@@ -550,60 +548,60 @@ void expr_code_gen(struct expr *e, FILE *output){
             switch(e->kind){
                 // tgt reg = zero:sign, so move result into sign and clear zero
                 case EXPR_GT: // sign 0 AND zero 0
-                    fprintf(output, "NOTB %r%s\n" // !zero
-                                    "NOTB %r%s\n" // !sign
-                                    "ANDB %r%s, %r%s\n" // tgt <- !zero && !sign
-                                    "ANDQ $1, %r%s\n", // clear collateral
+                    fprintf(output, "NOTB %%r%s\n" // !zero
+                                    "NOTB %%r%s\n" // !sign
+                                    "ANDB %%r%s, %%r%s\n" // tgt <- !zero && !sign
+                                    "ANDQ $1, %%r%s\n", // clear collateral
                                     zero_reg, sign_reg,
                                     zero_reg, sign_reg,
                                     tgt_reg);
                     break;
                 case EXPR_GT_EQ: // sign 0
-                    fprintf(output, "NOTB %r%s\n" // tgt <- !sign
-                                    "ANDQ $1, %r%s\n", // clear collateral
+                    fprintf(output, "NOTB %%r%s\n" // tgt <- !sign
+                                    "ANDQ $1, %%r%s\n", // clear collateral
                                     sign_reg,
                                     tgt_reg);
                     break;
                 case EXPR_LT: // sign 1
-                    fprintf(output, "ANDQ $1, %r%s", tgt_reg); // clear collateral
+                    fprintf(output, "ANDQ $1, %%r%s", tgt_reg); // clear collateral
                     break;
                 case EXPR_LT_EQ: //sign 1 OR zero 1
-                    fprintf(output, "ORB %r%s, %r%s\n" // tgt <- zero || sign
-                                    "ANDQ $1, \%%s\n", // clear collateral
+                    fprintf(output, "ORB %%r%s, %%r%s\n" // tgt <- zero || sign
+                                    "ANDQ $1, %%r%s\n", // clear collateral
                                     zero_reg, sign_reg,
                                     tgt_reg);
                     break;
                 case EXPR_EQ: // zero 1
-                    fprintf(output, "MOVB %r%s, %r%s\n" // tgt <- zero
-                                    "ANDQ $1, %r%s\n",  // clear collateral
+                    fprintf(output, "MOVB %%r%s, %%r%s\n" // tgt <- zero
+                                    "ANDQ $1, %%r%s\n",  // clear collateral
                                     zero_reg, sign_reg,
                                     tgt_reg);
                     break;
                 case EXPR_NOT_EQ: // zero 0
-                    fprintf(output, "NOTB %r%s\n" // !zero
-                                    "MOVB %r%s, %r%s\n" // tgt <- !zero
-                                    "ANDQ $1, %r%s\n", // clear collateral
+                    fprintf(output, "NOTB %%r%s\n" // !zero
+                                    "MOVB %%r%s, %%r%s\n" // tgt <- !zero
+                                    "ANDQ $1, %%r%s\n", // clear collateral
                                     zero_reg,
                                     zero_reg, sign_reg,
                                     tgt_reg);
                     break;
                 default:
-                    printf("Unexpected expr kind in bool code gen: %d. Aborting..."\n, e->kind);
+                    printf("Unexpected expr kind in bool code gen: %d. Aborting...\n", e->kind);
                     abort();
             }
             scratch_free(e->data->operator_args->next->reg);
-            free(sign_reg);
-            free(zero_reg);
+            //free(sign_reg);
+            //free(zero_reg);
         }
         case EXPR_ADD: 
         case EXPR_SUB:
-            expr_code_gen(e->data->operator_args);
-            expr_code_gen(e->data->operator_args->next);
+            expr_code_gen(output, e->data->operator_args);
+            expr_code_gen(output, e->data->operator_args->next);
             // 4 - 3 ~ SUBQ 3 4, so always collapse into left reg
-            fprintf(output, "%sQ %r%s, %r%s\n",
+            fprintf(output, "%sQ %%r%s, %%r%s\n",
                     e->kind == EXPR_ADD ? "ADD" : "SUB",
-                    reg_to_name(e->data->operator_args->next->reg),
-                    reg_to_name(e->data->operator_args->reg));
+                    scratch_name(e->data->operator_args->next->reg),
+                    scratch_name(e->data->operator_args->reg));
             e->reg = e->data->operator_args->reg;
             scratch_free(e->data->operator_args->next->reg);
             break;
@@ -612,28 +610,28 @@ void expr_code_gen(struct expr *e, FILE *output){
         case EXPR_MOD:
             // MUL and DIV have the weird implicit rax operand: 
             // this makes it convenient to combine these cases.
-            expr_code_gen(e->data->operator_args);
-            expr_code_gen(e->data->operator_args->next);
+            expr_code_gen(output, e->data->operator_args);
+            expr_code_gen(output, e->data->operator_args->next);
             e->reg = e->data->operator_args->reg; //  fold left
 
-            // 1. Place left operand into %rax
+            // 1. Place left operand into %%rax
             //    This is either the dividend (order matters: must be left) or a factor (order doesn't matter), so just always put left operand.
-            fprintf(output, "MOVQ %r%s, %rax\n",
+            fprintf(output, "MOVQ %%r%s, %%rax\n",
                             scratch_name(e->data->operator_args->reg));
 
-            // 2. Perform the operation between %rax (implicit) and other operand
-            fprintf(output, "I%sQ %r%s\n",
+            // 2. Perform the operation between %%rax (implicit) and other operand
+            fprintf(output, "I%sQ %%r%s\n",
                             e->kind == EXPR_MUL ? "MUL" : "DIV",
                             scratch_name(e->data->operator_args->next->reg));
 
             // 3. Retrieve interesting result
-            fprintf(output, "MOVQ %r%s, %r%s\n",
+            fprintf(output, "MOVQ %%r%s, %%r%s\n",
                             e->kind == EXPR_MOD ? "dx" : "ax",
                             scratch_name(e->reg));
 
             scratch_free(e->data->operator_args->reg);
             break;
-        case EXPR_EXP: 
+        case EXPR_EXP: {
             // Call a special runtime pow (need to convert ints to floats?)
  
             // Create copies that can be deleted in expr_delete
@@ -644,13 +642,14 @@ void expr_code_gen(struct expr *e, FILE *output){
                 expr_create_identifier("bminor_runtime_pow"),
                 base
             );
-            expr_code_gen(runtime_pow_call);
+            expr_code_gen(output, runtime_pow_call);
             e->reg = runtime_pow_call->reg;
             expr_delete(runtime_pow_call); // also deletes base and xp
             break;
+        }
         case EXPR_NOT:
-            expr_code_gen(e->data->operator_args);
-            fprintf("NOTQ %r%s\n",
+            expr_code_gen(output, e->data->operator_args);
+            fprintf(output, "NOTQ %%r%s\n",
                     scratch_name(e->data->operator_args->reg));
             e->reg = e->data->operator_args->reg;
             break;
@@ -659,13 +658,13 @@ void expr_code_gen(struct expr *e, FILE *output){
             e->reg = e->data->operator_args->reg;
             break;
         case EXPR_ADD_INV: 
-            expr_code_gen(e->data->operator_args);
-            fprintf(output, "NEGQ %r%s\n",
-                    scratch_name(e->data->operator_args->reg));
-            e->reg = e->data->operator_args->reg;
+            expr_code_gen(output, e->data->operator_args->next);
+            fprintf(output, "NEGQ %%r%s\n",
+                    scratch_name(e->data->operator_args->next->reg));
+            e->reg = e->data->operator_args->next->reg;
             break;
         case EXPR_POST_INC: 
-        case EXPR_POST_DEC:
+        case EXPR_POST_DEC: {
             // We have two lvalues in B-minor: variables and array elements (x or a[i]).
             // Either way, we must have an underlying symbol here.
             // (We also know that the underlying symbols have int types since only those can be inc/dec'd)
@@ -674,14 +673,14 @@ void expr_code_gen(struct expr *e, FILE *output){
             struct expr *lvalue = e->data->operator_args;
             char *mem_addr;
             if( lvalue->kind == EXPR_ARR_ACC ){
-                struct symbol *sym = lvalue->data->operator_args->symbol  // the array symbol
-                expr_code_gen(lvalue->data->operator_args->next); // resolve index
-                offset_reg = lvalue->data->operator_args->next->reg;
+                struct symbol *sym = lvalue->data->operator_args->symbol; // the array symbol
+                expr_code_gen(output, lvalue->data->operator_args->next); // resolve index
+                int offset_reg = lvalue->data->operator_args->next->reg;
                 mem_addr = symbol_to_location(sym, offset_reg);
                 scratch_free(offset_reg);
             } else if( lvalue->kind  == EXPR_IDENT ){
                 struct symbol *sym = lvalue->symbol; // the ident symbol
-                mem_addr = symbol_to_location(sym, 0); // second arg ignored since symbol type is int (not array)
+                mem_addr = symbol_to_location(sym, -1);
             } else {
                 printf("Unexpected lvalue kind: %d. Aborting...\n", lvalue->kind);
                 abort();
@@ -689,7 +688,7 @@ void expr_code_gen(struct expr *e, FILE *output){
 
             // 2. Load the memory address's current value to return.
             e->reg = scratch_alloc();
-            fprintf(output, "MOVQ %r%s, %s\n",
+            fprintf(output, "MOVQ %%r%s, %s\n",
                             mem_addr,
                             scratch_name(e->reg));
 
@@ -700,22 +699,23 @@ void expr_code_gen(struct expr *e, FILE *output){
 
             free(mem_addr); // clean up symbol_to_location's allocation
             break;
+        }
         case EXPR_ARR_ACC:
-            expr_code_gen(e->data->operator_args);       // the array
-            expr_code_gen(e->data->operator_args->next); // the index
+            expr_code_gen(output, e->data->operator_args);       // the array
+            expr_code_gen(output, e->data->operator_args->next); // the index
             e->reg = e->data->operator_args->reg;        // fold left as always
             // Our array literal work below allows us to grab an array element super easily using the complex address mode.
-            fprintf(output, "MOVQ (%r%s, %r%s, 8), %r%s",
+            fprintf(output, "MOVQ (%%r%s, %%r%s, 8), %%r%s",
                     scratch_name(e->data->operator_args->reg),
                     scratch_name(e->data->operator_args->next->reg),
                     scratch_name(e->reg));
             scratch_free(e->data->operator_args->next->reg);
             break;
-        case EXPR_ARR_LIT: 
+        case EXPR_ARR_LIT: {
             // Fundamental idea: allocate elements of an array literal on the stack,
             // and return its starting address as the "contents" of an array variable
             // Specifically, we resolve each array element and it push it onto stack in *reverse* order.
-            // This makes it more natural to index an array later: a[5] becomes <a_stack_idx>(%rbp, <index>, 8).
+            // This makes it more natural to index an array later: a[5] becomes <a_stack_idx>(%%rbp, <index>, 8).
             // That is, to traverse the array we move in the positive direction (up the stack),
             // which works nicely with the complex address mode, which cannot be negative.
             // To do this requires a bit more work here, but a bit less work later.
@@ -727,42 +727,43 @@ void expr_code_gen(struct expr *e, FILE *output){
             // 1. Determine the array literal's length.
             //    This will enable us to calculate the addresses to which to "reverse push".
             int arr_len = 0;
-            for( struct *expr ele = e->data->arr_elements; ele; ele = ele->next ){
+            for( struct expr *ele = e->data->arr_elements; ele; ele = ele->next ){
                 arr_len += 1;
             }
 
             // 2. Allocate space on the stack for the array elements.
             //    (treating everthing as 64-bit/quad word)
-            fprintf(output, "SUBQ $%d, %rsp",
+            fprintf(output, "SUBQ $%d, %%rsp",
                     8 * arr_len);
 
             // 3. Load the array "value": the address of its first element (which, post-allocation, is now the stack pointer).
-            int e->reg = scratch_alloc();
-            fprintf(output, "MOVQ %rsp, %r%s",
+            e->reg = scratch_alloc();
+            fprintf(output, "MOVQ %%rsp, %%r%s",
                     scratch_name(e->reg));
 
             // 4. "Reverse push" each element onto the stack.
             int arr_idx = 0;
-            for( struct *expr ele = e->data->arr_elements; ele; ele = ele->next, arr_idx++ ){
-                expr_code_gen(ele);
-                fprintf(output, "MOVQ %r%s, -%d(%rsp)\n",
+            for( struct expr *ele = e->data->arr_elements; ele; arr_idx++, ele = ele->next ){
+                expr_code_gen(output, ele);
+                fprintf(output, "MOVQ %%r%s, -%d(%%rsp)\n",
                         scratch_name(ele->reg),
                         8 * arr_idx);
                 scratch_free(ele->reg);
             }
             break;
+        }
         case EXPR_FUNC_CALL:
-            // 1. Save caller-saved registers (%r10, %r11).
+            // 1. Save caller-saved registers (%%r10, %%r11).
             //    (Again, not concerned with optimizing for whether these are actually in use by the caller)
             for( int i = 0; i < num_caller_saved_regs; i++ ){
-                fprintf(output, "PUSHQ %r%\n", caller_saved_regs[i]);
+                fprintf(output, "PUSHQ %%r%s\n", caller_saved_regs[i]);
             }
             
             // 2. Load up first few arguments into the designated registers.
             struct expr *curr_arg = e->data->func_and_args->next;
             for( int i = 0; i < num_func_arg_regs && curr_arg; i++, curr_arg = curr_arg->next ){
-                expr_code_gen(curr_arg);
-                fprintf(output, "MOVQ %r%s, %r%s\n,
+                expr_code_gen(output, curr_arg);
+                fprintf(output, "MOVQ %%r%s, %%r%s\n",
                         scratch_name(curr_arg->reg),
                         func_arg_regs[i]);
                 scratch_free(curr_arg->reg);
@@ -776,22 +777,22 @@ void expr_code_gen(struct expr *e, FILE *output){
             }
             //    b. Allocate stack space for the remaining arguments.
             //       (May be a no-op if there are no remaining arguments)
-            fprintf(output, "SUBQ $%d, %rsp\n",
+            fprintf(output, "SUBQ $%d, %%rsp\n",
                     8 * rem_args);
             //    c. "Reverse push" the remaining arguments onto stack frame.
             int stack_bottom_offset = 0;
             for( ; curr_arg; curr_arg = curr_arg->next, stack_bottom_offset++ ){
-                expr_code_gen(curr_arg);
-                fprintf(output, "MOVQ %r%s, -%d(%rsp)\n",
+                expr_code_gen(output, curr_arg);
+                fprintf(output, "MOVQ %%r%s, -%d(%%rsp)\n",
                         scratch_name(curr_arg->reg),
                         8 * stack_bottom_offset);
                 scratch_free(curr_arg->reg);
             }
 
             // 4. Call the function.
-            //    Currently, functions may only be declared and defined as global variables.
-            //    That is, there is no expression resolvable to a function other than the function's identifier.
-            //    Thus, we can assume that the expression resolving to the function being called is an identifier expression.
+            //    Functions may only be declared and defined as global variables.
+            //    Thus, there is no expression resolvable to a function other than the function's identifier.
+            //    So, we can assume that the expression resolving to the function being called is an identifier expression.
             //    This allows us to simply extract the ident name from the function call,
             //    rather than worrying about code-generating the expression and using the resolved value from a register.
             //    (Indeed, how would we use the resolution in the register?
@@ -804,23 +805,24 @@ void expr_code_gen(struct expr *e, FILE *output){
             
             // 5. Retrieve return value.
             e->reg = scratch_alloc();
-            fprintf(output, "MOVQ %rax, %r%s",
+            fprintf(output, "MOVQ %%rax, %%r%s",
                     scratch_name(e->reg));
             
             // 6. Restore caller-saved registers.
             for( int i = num_caller_saved_regs - 1; i >= 0; i-- ){
-                fprintf(output, "POPQ %r%s\n", caller_saved_regs[i]);
+                fprintf(output, "POPQ %%r%s\n", caller_saved_regs[i]);
             }
             break;
-        case EXPR_IDENT:
-            char *var_loc = symbol_to_location(e->data->operator_args->ident_name, -1);
+        case EXPR_IDENT: {
+            char *var_loc = symbol_to_location(e->symbol, -1);
             e->reg = scratch_alloc();
-            fprintf(output, "MOVQ %s, %r%s\n", var_loc, scratch_name(e->reg));
+            fprintf(output, "MOVQ %s, %%r%s\n", var_loc, scratch_name(e->reg));
             free(var_loc);
             break;
+        }
         case EXPR_INT_LIT:
             e->reg = scratch_alloc();
-            fprintf(output, "MOVQ $%d, %r%s\n",
+            fprintf(output, "MOVQ $%d, %%r%s\n",
                     e->data->int_data,
                     scratch_name(e->reg));
             break;
@@ -832,7 +834,7 @@ void expr_code_gen(struct expr *e, FILE *output){
             fprintf(output, ".section  .rodata\n" // switch to rodata sxn
                             "%s:    .string \"%s\"\n"
                             ".text\n" // switch back to text (code) sxn
-                            "MOVQ $%s, %r%s\n", // load data from new label
+                            "MOVQ $%s, %%r%s\n", // load data from new label
                             str_label, e->data->str_data,
                             str_label, scratch_name(e->reg));
             free(str_label);
@@ -840,14 +842,14 @@ void expr_code_gen(struct expr *e, FILE *output){
         case EXPR_CHAR_LIT:
             e->reg = scratch_alloc();
             // cast bool_data to int and move it into the reg
-            fprintf(output, "MOVQ $%d, %r%s\n",
+            fprintf(output, "MOVQ $%d, %%r%s\n",
                     e->data->char_data,
                     scratch_name(e->reg));
             break;
         case EXPR_BOOL_LIT:
             e->reg = scratch_alloc();
             // cast bool_data to int and move it into the reg
-            fprintf(output, "MOVQ $%d, %r%s\n",
+            fprintf(output, "MOVQ $%d, %%r%s\n",
                     e->data->bool_data,
                     scratch_name(e->reg));
             break;
@@ -856,25 +858,7 @@ void expr_code_gen(struct expr *e, FILE *output){
             abort();
             break;
     }
-
-    //expr_code_gen(e->next);
 }
-
-/* MOVED TO UTILS FILE
-bool  reg_in_use[7]     = { 0 };
-char *reg_name[7]       = { "bx", "10", "11", "12", "13", "14", "15" }
-int scratch_alloc(){
-    for(int i = 0; i < (sizeof reg_in_use)/(sizeof reg_in_use[0]); i++){
-        if( !reg_in_use[i] ) return i;
-    }
-    // all registers in use
-    return -1;
-}
-
-void scratch_free(int r){ reg_in_use[r] = 0; }
-
-char *scratch_name(int r){ return reg_name[r]; }
-*/
 
 void print_symm_binary_type_error(expr_t oper, char *expected_type, struct type *left_type, struct expr *left_expr, struct type *right_type, struct expr *right_expr){
     char postamble[BUFSIZ];
@@ -916,15 +900,16 @@ void print_binary_type_error(expr_t oper, char *postamble, struct type *left_typ
     printf("`). %s.\n", postamble);
 }
 
-#define eval_bin_op(op, intype, outtype) \
-    struct expr *to_return = expr_create_outtype_literal( \
-        l->data->intype_data \
+#define EVAL_BIN_OP(op, intype, outtype) { \
+    struct expr *to_return = expr_create_ ## outtype ## _literal( \
+        l->data->intype ## _data \
         op \
-        r->data->intype_data \
+        r->data->intype ## _data \
     ); \
     expr_delete(l); \
     expr_delete(r); \
-    return to_return;
+    return to_return; \
+}
 
 struct expr *expr_eval_const(struct expr *e){
     if( !e || e->kind == EXPR_EMPTY ) return NULL; // ??
@@ -936,7 +921,7 @@ struct expr *expr_eval_const(struct expr *e){
         case EXPR_STR_LIT:
             // Copy to allow unconditional freeing later
             return expr_copy(e);
-        case EXPR_ARR_LIT:
+        case EXPR_ARR_LIT: {
             struct expr *to_return = expr_create_array_literal(NULL);
             struct expr *tail;
             for( struct expr *ele = e->data->arr_elements; ele; ele = ele->next ){
@@ -951,6 +936,8 @@ struct expr *expr_eval_const(struct expr *e){
                 tail = evald;
             }
             return to_return;
+        }
+        default: break; // Don't expect to catch every case here
     }
 
     // Operators
@@ -959,27 +946,27 @@ struct expr *expr_eval_const(struct expr *e){
     switch( e->kind ){
         // ez cases
         case EXPR_ADD:
-            eval_bin_op(+, int, integer);
+            EVAL_BIN_OP(+, int, integer);
         case EXPR_SUB:
-            eval_bin_op(-, int, integer);
+            EVAL_BIN_OP(-, int, integer);
         case EXPR_MUL:
-            eval_bin_op(*, int, integer);
+            EVAL_BIN_OP(*, int, integer);
         case EXPR_DIV:
-            eval_bin_op(/, int, integer);
+            EVAL_BIN_OP(/, int, integer);
         case EXPR_MOD:
-            eval_bin_op(%, int, integer);
+            EVAL_BIN_OP(%, int, integer);
         case EXPR_OR:
-            eval_bin_op(||, bool, boolean);
+            EVAL_BIN_OP(||, bool, boolean);
         case EXPR_AND:
-            eval_bin_op(&&, bool, boolean);
+            EVAL_BIN_OP(&&, bool, boolean);
         case EXPR_LT:
-            eval_bin_op(<, int, boolean);
+            EVAL_BIN_OP(<, int, boolean);
         case EXPR_LT_EQ:
-            eval_bin_op(<=, int, boolean);
+            EVAL_BIN_OP(<=, int, boolean);
         case EXPR_GT:
-            eval_bin_op(>, int, boolean);
+            EVAL_BIN_OP(>, int, boolean);
         case EXPR_GT_EQ:
-            eval_bin_op(>=, int, boolean);
+            EVAL_BIN_OP(>=, int, boolean);
         // interesting cases
         case EXPR_ASGN:
             expr_delete(l);
@@ -989,26 +976,28 @@ struct expr *expr_eval_const(struct expr *e){
             // Note that this means arrays and strings with same contents
             // will NOT evaluate to equal.
             // This is how string/array comparison works at runtime, too.
-            eval_bin_op(==, int, boolean);
+            EVAL_BIN_OP(==, int, boolean);
         case EXPR_NOT_EQ:
             // See comment above
-            eval_bin_op(!=, int, boolean);
+            EVAL_BIN_OP(!=, int, boolean);
         case EXPR_ADD_ID:
             return r;
-        case EXPR_ADD_INV:
+        case EXPR_ADD_INV: {
             struct expr *l = expr_create_integer_literal(0);
-            eval_bin_op(-, int, integer); 
-        case EXPR_EXP:
+            EVAL_BIN_OP(-, int, integer);
+        }
+        case EXPR_EXP: {
             struct expr *to_return = expr_create_integer_literal(
                 // implicitly casting from int to float to int
-                pow(l->data->int_data, r->data->int_data);
+                pow(l->data->int_data, r->data->int_data)
             );
             expr_delete(l);
             expr_delete(r);
             return to_return;
-        case EXPR_ARR_ACC:
+        }
+        case EXPR_ARR_ACC: {
             int idx = r->data->int_data;
-            struct *expr ele = l->data->arr_elements;
+            struct expr *ele = l->data->arr_elements;
             // If idx is out of range, behavior is already undefined,
             // so just truncating to last element is easiest here.
             for( int i = 0; i < idx && ele; i++ ){
@@ -1018,9 +1007,11 @@ struct expr *expr_eval_const(struct expr *e){
             expr_delete(l);
             expr_delete(r);
             return to_return;
-        default:
+        }
+        default: {
             printf("Unhandled expr kind in expr_eval_const: %d. Aborting...\n", e->kind);
             abort();
+        }
     }
 }
 

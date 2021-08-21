@@ -10,6 +10,7 @@ SED = $(shell gsed --version &>/dev/null 2>&1 && echo "gsed" || echo "sed")
 
 AST_COMP = expr.o decl.o stmt.o type.o
 NAME_RES = scope.o symbol.o hash_table.o
+CODE_GEN = code_gen_utils.o
 
 TARGETS = bminor
 
@@ -29,7 +30,7 @@ clean:
 	@rm -f *_tests/*_tests/*.out
 	@rm -f valgrind-out.txt
 
-bminor: 		    main.o bminor_scan.o bminor_parse.o $(AST_COMP) $(NAME_RES) token.h
+bminor: 		    main.o bminor_scan.o bminor_parse.o $(AST_COMP) $(NAME_RES) $(CODE_GEN) token.h
 	@echo "Linking bminor..."
 	$(LD) $(LDFLAGS) -o $@ $^ -lm
 

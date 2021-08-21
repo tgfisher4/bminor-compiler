@@ -26,14 +26,15 @@ int parse_file(char *filename);
 void print_ast(struct decl *ast);
 int resolve_ast(struct decl *ast, bool verbose);
 void typecheck_ast(struct decl *ast);
-void process_cl_args(int argc, char** argv, bool* stages, char** to_compile);
+void code_gen_ast(char *filename, struct decl *ast);
+void process_cl_args(int argc, char** argv, bool* stages, char** to_compile, char ** output_file);
 
 /* stages */
 int SCAN      = 0,
     PARSE     = 1,
     PPRINT    = 2,
     RESOLVE   = 3,
-    TYPECHECK = 4;
+    TYPECHECK = 4,
     CODEGEN   = 5;
 
 int   typecheck_errors;
@@ -62,7 +63,7 @@ int main(int argc, char **argv){
     bool run_all = true;
 
     /* process CL args */
-    process_cl_args(argc, argv, stages, &to_compile);
+    process_cl_args(argc, argv, stages, &to_compile, &output_file);
 
     for(int i = 0; i < 4; i++)      run_all = run_all && !stages[i];
 
@@ -119,7 +120,7 @@ int main(int argc, char **argv){
 
     /* codegen */
     if( stages[CODEGEN] ){
-        gen_ast_code(ast);
+        code_gen_ast(output_file, ast);
         puts("Code generation successful."); 
     }
 
@@ -170,10 +171,15 @@ int resolve_ast(struct decl *ast, bool verbose){
     return err_count;
 }
 
-void typecheck_ast(struct decl *ast){ decl_list_typecheck(ast); }
+void typecheck_ast(struct decl *ast){ decl_list_typecheck(ast, true); }
 
-void gen_ast_code(struct decl *ast){ decl_codegen(ast, output_file); }
+void code_gen_ast(char *filename, struct decl *ast){
+    FILE *output = fopen(filename, "w");
+    decl_global_list_code_gen(output, ast);
+    fclose(output);
+}
 
+// Both scans and parses.
 int parse_file(char *filename){
     yyin = fopen(filename, "r");
     if(!yyin) {
