@@ -1,12 +1,13 @@
 #include "expr.h"
 #include "scope.h"
 #include "code_gen_utils.h"
+#include "bminor_runtime.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 #include <limits.h>
-#include <math.h>
 
 extern int typecheck_errors;
 
@@ -14,7 +15,6 @@ extern int typecheck_errors;
 char *oper_to_str(expr_t t);
 int oper_precedence(expr_t t);
 void expr_print_subexpr(struct expr *e, expr_t parent_oper, bool right_oper);
-void descape_and_print_str_lit(const char *s);
 void descape_and_print_char_lit(char c);
 char *descape_char(char c, char delim);
 
@@ -113,9 +113,10 @@ struct expr *expr_create_empty(){
 }
 
 struct expr *expr_copy(struct expr *e){
-    union expr_data *d = malloc(sizeof(*d));
-    memcpy(d, e->data, sizeof(*d));
-    return expr_create(e->kind, d);
+    struct expr *to_return = malloc(sizeof(*to_return));
+    // TODO: err-check malloc
+    memcpy(to_return, e, sizeof(*to_return));
+    return to_return;
 }
 
 void expr_delete(struct expr *e){
@@ -130,7 +131,7 @@ void expr_delete(struct expr *e){
         // the operator_args is insignificant.
         expr_delete(e->data->operator_args);
     }
-    free(e->data);
+    //free(e->data);
     expr_delete(e->next);
     free(e);
 }
@@ -456,8 +457,8 @@ void expr_code_gen(FILE *output, struct expr *e){
             }
 
             // 2. Move assigned value into memory address.
-            expr_code_gen(output, e->data->operator_args);
-            fprintf(output, "MOVQ %%r%s, %s\n",
+            expr_code_gen(output, e->data->operator_args->next);
+            fprintf(output, "MOVQ\t%%r%s, %s\n",
                     scratch_name(e->data->operator_args->next->reg),
                     mem_addr);
 
@@ -473,7 +474,7 @@ void expr_code_gen(FILE *output, struct expr *e){
             expr_code_gen(output, e->data->operator_args);
             expr_code_gen(output, e->data->operator_args->next);
             e->reg = e->data->operator_args->reg; // fold left
-            fprintf(output, "%sQ %%r%s, %%r%s\n",
+            fprintf(output, "%sQ\t%%r%s, %%r%s\n",
                             e->kind == EXPR_OR
                             ? "OR"
                             : "AND",
@@ -494,9 +495,14 @@ void expr_code_gen(FILE *output, struct expr *e){
             char *tgt_reg  = scratch_name(e->reg);
 
             // compare operands
-            fprintf(output, "CMP %%r%s, %%r%s\n",
-                            scratch_name(e->data->operator_args->reg),
-                            scratch_name(e->data->operator_args->next->reg));
+            // performs r - l bc att syntax (I think)
+            // then, sign bit set if result was negative, i.e., r - l < 0, r < l, l > r
+            // so, to compare x and y, do cmp y, x, and if sign set, then y > x; x < y
+            fprintf(output, "CMP\t%%r%s, %%r%s\n",
+            //                scratch_name(e->data->operator_args->reg),
+            //                scratch_name(e->data->operator_args->next->reg));
+                            scratch_name(e->data->operator_args->next->reg),
+                            scratch_name(e->data->operator_args->reg));
 
             /* Premise: using labels to evaluate a comparison feels a little weird, and this was fun to think about.
              * This is probably not the optimal setup (jumps gotta be way faster), but was a fun thought experiment.
@@ -526,61 +532,61 @@ void expr_code_gen(FILE *output, struct expr *e){
             
             // Split the tgt reg as our sign and zero regs
             if( !strcmp(tgt_reg, "bx") ){
-                sprintf(sign_reg, "BL");
-                sprintf(zero_reg, "BH");
+                sprintf(sign_reg, "bl");
+                sprintf(zero_reg, "bh");
             }
             else { // others are 10,...,15
-                sprintf(sign_reg, "%sL", tgt_reg);
-                sprintf(zero_reg, "%sH", tgt_reg);
+                sprintf(sign_reg, "%sl", tgt_reg);
+                sprintf(zero_reg, "%sh", tgt_reg);
             }
             fprintf(output, "LAHF\n" // load status flags into AH reg
-                            "MOVB AH, %%r%s\n" // copy to one scratch
-                            "MOVB AH, %%r%s\n" // copy to other scratch
+                            "MOVB\t%%ah, %%%s\n" // copy to one scratch
+                            "MOVB\t%%ah, %%%s\n" // copy to other scratch
                             // grab sign flag (idx 7: just shift right)
-                            "SHRB $7, %%r%s\n" // logical shift: fills in 0s
+                            "SHRB\t$7, %%%s\n" // logical shift: fills in 0s
                             // grab zero flag (idx 6: shift left 1, then right 7)
-                            "SHLB $1, %%r%s\n"
-                            "SHRB $7, %%r%s\n",
+                            "SHLB\t$1, %%%s\n"
+                            "SHRB\t$7, %%%s\n",
                             sign_reg, zero_reg,
                             sign_reg,
                             zero_reg, zero_reg);
 
             switch(e->kind){
-                // tgt reg = zero:sign, so move result into sign and clear zero
+                // tgt reg = zero:sign, so move result into sign
                 case EXPR_GT: // sign 0 AND zero 0
-                    fprintf(output, "NOTB %%r%s\n" // !zero
-                                    "NOTB %%r%s\n" // !sign
-                                    "ANDB %%r%s, %%r%s\n" // tgt <- !zero && !sign
-                                    "ANDQ $1, %%r%s\n", // clear collateral
+                    fprintf(output, "NOTB\t%%%s\n" // !zero
+                                    "NOTB\t%%%s\n" // !sign
+                                    "ANDB\t%%%s, %%%s\n" // tgt <- !zero && !sign
+                                    "ANDQ\t$1, %%r%s\n", // clear collateral
                                     zero_reg, sign_reg,
                                     zero_reg, sign_reg,
                                     tgt_reg);
                     break;
                 case EXPR_GT_EQ: // sign 0
-                    fprintf(output, "NOTB %%r%s\n" // tgt <- !sign
-                                    "ANDQ $1, %%r%s\n", // clear collateral
+                    fprintf(output, "NOTB\t%%%s\n" // tgt <- !sign
+                                    "ANDQ\t$1, %%r%s\n", // clear collateral
                                     sign_reg,
                                     tgt_reg);
                     break;
                 case EXPR_LT: // sign 1
-                    fprintf(output, "ANDQ $1, %%r%s", tgt_reg); // clear collateral
+                    fprintf(output, "ANDQ\t$1, %%r%s\n", tgt_reg); // clear collateral
                     break;
                 case EXPR_LT_EQ: //sign 1 OR zero 1
-                    fprintf(output, "ORB %%r%s, %%r%s\n" // tgt <- zero || sign
-                                    "ANDQ $1, %%r%s\n", // clear collateral
+                    fprintf(output, "ORB\t%%r%s, %%r%s\n" // tgt <- zero || sign
+                                    "ANDQ\t$1, %%r%s\n", // clear collateral
                                     zero_reg, sign_reg,
                                     tgt_reg);
                     break;
                 case EXPR_EQ: // zero 1
-                    fprintf(output, "MOVB %%r%s, %%r%s\n" // tgt <- zero
-                                    "ANDQ $1, %%r%s\n",  // clear collateral
+                    fprintf(output, "MOVB\t%%r%s, %%r%s\n" // tgt <- zero
+                                    "ANDQ\t$1, %%r%s\n",  // clear collateral
                                     zero_reg, sign_reg,
                                     tgt_reg);
                     break;
                 case EXPR_NOT_EQ: // zero 0
-                    fprintf(output, "NOTB %%r%s\n" // !zero
-                                    "MOVB %%r%s, %%r%s\n" // tgt <- !zero
-                                    "ANDQ $1, %%r%s\n", // clear collateral
+                    fprintf(output, "NOTB\t%%%s\n" // !zero
+                                    "MOVB\t%%%s, %%%s\n" // tgt <- !zero
+                                    "ANDQ\t$1, %%r%s\n", // clear collateral
                                     zero_reg,
                                     zero_reg, sign_reg,
                                     tgt_reg);
@@ -592,13 +598,14 @@ void expr_code_gen(FILE *output, struct expr *e){
             scratch_free(e->data->operator_args->next->reg);
             //free(sign_reg);
             //free(zero_reg);
+            break;
         }
         case EXPR_ADD: 
         case EXPR_SUB:
             expr_code_gen(output, e->data->operator_args);
             expr_code_gen(output, e->data->operator_args->next);
             // 4 - 3 ~ SUBQ 3 4, so always collapse into left reg
-            fprintf(output, "%sQ %%r%s, %%r%s\n",
+            fprintf(output, "%sQ\t%%r%s, %%r%s\n",
                     e->kind == EXPR_ADD ? "ADD" : "SUB",
                     scratch_name(e->data->operator_args->next->reg),
                     scratch_name(e->data->operator_args->reg));
@@ -616,16 +623,16 @@ void expr_code_gen(FILE *output, struct expr *e){
 
             // 1. Place left operand into %%rax
             //    This is either the dividend (order matters: must be left) or a factor (order doesn't matter), so just always put left operand.
-            fprintf(output, "MOVQ %%r%s, %%rax\n",
+            fprintf(output, "MOVQ\t%%r%s, %%rax\n",
                             scratch_name(e->data->operator_args->reg));
 
             // 2. Perform the operation between %%rax (implicit) and other operand
-            fprintf(output, "I%sQ %%r%s\n",
+            fprintf(output, "I%sQ\t%%r%s\n",
                             e->kind == EXPR_MUL ? "MUL" : "DIV",
                             scratch_name(e->data->operator_args->next->reg));
 
             // 3. Retrieve interesting result
-            fprintf(output, "MOVQ %%r%s, %%r%s\n",
+            fprintf(output, "MOVQ\t%%r%s, %%r%s\n",
                             e->kind == EXPR_MOD ? "dx" : "ax",
                             scratch_name(e->reg));
 
@@ -649,7 +656,7 @@ void expr_code_gen(FILE *output, struct expr *e){
         }
         case EXPR_NOT:
             expr_code_gen(output, e->data->operator_args);
-            fprintf(output, "NOTQ %%r%s\n",
+            fprintf(output, "NOTQ\t%%r%s\n",
                     scratch_name(e->data->operator_args->reg));
             e->reg = e->data->operator_args->reg;
             break;
@@ -659,7 +666,7 @@ void expr_code_gen(FILE *output, struct expr *e){
             break;
         case EXPR_ADD_INV: 
             expr_code_gen(output, e->data->operator_args->next);
-            fprintf(output, "NEGQ %%r%s\n",
+            fprintf(output, "NEGQ\t%%r%s\n",
                     scratch_name(e->data->operator_args->next->reg));
             e->reg = e->data->operator_args->next->reg;
             break;
@@ -688,12 +695,12 @@ void expr_code_gen(FILE *output, struct expr *e){
 
             // 2. Load the memory address's current value to return.
             e->reg = scratch_alloc();
-            fprintf(output, "MOVQ %%r%s, %s\n",
+            fprintf(output, "MOVQ\t%s, %%r%s\n",
                             mem_addr,
                             scratch_name(e->reg));
 
             // 3. Increment the memory address's value (without disturbing the results of (2)).
-            fprintf(output, "%sQ $1, r%s\n",
+            fprintf(output, "%sQ\t$1, %s\n",
                             e->kind == EXPR_POST_INC ? "ADD" : "SUB",
                             mem_addr); // seems legit, adding an immediate to an m32 like the manual says
 
@@ -705,7 +712,7 @@ void expr_code_gen(FILE *output, struct expr *e){
             expr_code_gen(output, e->data->operator_args->next); // the index
             e->reg = e->data->operator_args->reg;        // fold left as always
             // Our array literal work below allows us to grab an array element super easily using the complex address mode.
-            fprintf(output, "MOVQ (%%r%s, %%r%s, 8), %%r%s",
+            fprintf(output, "MOVQ\t(%%r%s, %%r%s, 8), %%r%s\n",
                     scratch_name(e->data->operator_args->reg),
                     scratch_name(e->data->operator_args->next->reg),
                     scratch_name(e->reg));
@@ -733,19 +740,19 @@ void expr_code_gen(FILE *output, struct expr *e){
 
             // 2. Allocate space on the stack for the array elements.
             //    (treating everthing as 64-bit/quad word)
-            fprintf(output, "SUBQ $%d, %%rsp",
+            fprintf(output, "SUBQ\t$%d, %%rsp\n",
                     8 * arr_len);
 
             // 3. Load the array "value": the address of its first element (which, post-allocation, is now the stack pointer).
             e->reg = scratch_alloc();
-            fprintf(output, "MOVQ %%rsp, %%r%s",
+            fprintf(output, "MOVQ\t%%rsp, %%r%s\n",
                     scratch_name(e->reg));
 
             // 4. "Reverse push" each element onto the stack.
             int arr_idx = 0;
             for( struct expr *ele = e->data->arr_elements; ele; arr_idx++, ele = ele->next ){
                 expr_code_gen(output, ele);
-                fprintf(output, "MOVQ %%r%s, -%d(%%rsp)\n",
+                fprintf(output, "MOVQ\t%%r%s, -%d(%%rsp)\n",
                         scratch_name(ele->reg),
                         8 * arr_idx);
                 scratch_free(ele->reg);
@@ -756,14 +763,14 @@ void expr_code_gen(FILE *output, struct expr *e){
             // 1. Save caller-saved registers (%%r10, %%r11).
             //    (Again, not concerned with optimizing for whether these are actually in use by the caller)
             for( int i = 0; i < num_caller_saved_regs; i++ ){
-                fprintf(output, "PUSHQ %%r%s\n", caller_saved_regs[i]);
+                fprintf(output, "PUSHQ\t%%r%s\n", caller_saved_regs[i]);
             }
             
             // 2. Load up first few arguments into the designated registers.
             struct expr *curr_arg = e->data->func_and_args->next;
             for( int i = 0; i < num_func_arg_regs && curr_arg; i++, curr_arg = curr_arg->next ){
                 expr_code_gen(output, curr_arg);
-                fprintf(output, "MOVQ %%r%s, %%r%s\n",
+                fprintf(output, "MOVQ\t%%r%s, %%r%s\n",
                         scratch_name(curr_arg->reg),
                         func_arg_regs[i]);
                 scratch_free(curr_arg->reg);
@@ -777,13 +784,13 @@ void expr_code_gen(FILE *output, struct expr *e){
             }
             //    b. Allocate stack space for the remaining arguments.
             //       (May be a no-op if there are no remaining arguments)
-            fprintf(output, "SUBQ $%d, %%rsp\n",
+            fprintf(output, "SUBQ\t$%d, %%rsp\n",
                     8 * rem_args);
             //    c. "Reverse push" the remaining arguments onto stack frame.
             int stack_bottom_offset = 0;
             for( ; curr_arg; curr_arg = curr_arg->next, stack_bottom_offset++ ){
                 expr_code_gen(output, curr_arg);
-                fprintf(output, "MOVQ %%r%s, -%d(%%rsp)\n",
+                fprintf(output, "MOVQ\t%%r%s, -%d(%%rsp)\n",
                         scratch_name(curr_arg->reg),
                         8 * stack_bottom_offset);
                 scratch_free(curr_arg->reg);
@@ -801,28 +808,28 @@ void expr_code_gen(FILE *output, struct expr *e){
                 printf("Code generator is not set up to handle function expressions other than identifiers. Aborting...\n");
                 abort();
             }
-            fprintf(output, "CALL %s", e->data->func_and_args->data->ident_name);
+            fprintf(output, "CALL\t%s\n", e->data->func_and_args->data->ident_name);
             
             // 5. Retrieve return value.
             e->reg = scratch_alloc();
-            fprintf(output, "MOVQ %%rax, %%r%s",
+            fprintf(output, "MOVQ\t%%rax, %%r%s\n",
                     scratch_name(e->reg));
             
             // 6. Restore caller-saved registers.
             for( int i = num_caller_saved_regs - 1; i >= 0; i-- ){
-                fprintf(output, "POPQ %%r%s\n", caller_saved_regs[i]);
+                fprintf(output, "POPQ\t%%r%s\n", caller_saved_regs[i]);
             }
             break;
         case EXPR_IDENT: {
             char *var_loc = symbol_to_location(e->symbol, -1);
             e->reg = scratch_alloc();
-            fprintf(output, "MOVQ %s, %%r%s\n", var_loc, scratch_name(e->reg));
+            fprintf(output, "MOVQ\t%s, %%r%s\n", var_loc, scratch_name(e->reg));
             free(var_loc);
             break;
         }
         case EXPR_INT_LIT:
             e->reg = scratch_alloc();
-            fprintf(output, "MOVQ $%d, %%r%s\n",
+            fprintf(output, "MOVQ\t$%d, %%r%s\n",
                     e->data->int_data,
                     scratch_name(e->reg));
             break;
@@ -832,24 +839,27 @@ void expr_code_gen(FILE *output, struct expr *e){
             e->reg = scratch_alloc();
             char *str_label = label_create();
             fprintf(output, ".section  .rodata\n" // switch to rodata sxn
-                            "%s:    .string \"%s\"\n"
+                            "%s:\n"
+                            "\t.string\t",
+                            str_label);
+            descape_and_print_str_lit(output, e->data->str_data);
+            fprintf(output, "\n"
                             ".text\n" // switch back to text (code) sxn
-                            "MOVQ $%s, %%r%s\n", // load data from new label
-                            str_label, e->data->str_data,
+                            "MOVQ\t$%s, %%r%s\n", // load data from new label
                             str_label, scratch_name(e->reg));
             free(str_label);
             break;
         case EXPR_CHAR_LIT:
             e->reg = scratch_alloc();
             // cast bool_data to int and move it into the reg
-            fprintf(output, "MOVQ $%d, %%r%s\n",
+            fprintf(output, "MOVQ\t$%d, %%r%s\n",
                     e->data->char_data,
                     scratch_name(e->reg));
             break;
         case EXPR_BOOL_LIT:
             e->reg = scratch_alloc();
             // cast bool_data to int and move it into the reg
-            fprintf(output, "MOVQ $%d, %%r%s\n",
+            fprintf(output, "MOVQ\t$%d, %%r%s\n",
                     e->data->bool_data,
                     scratch_name(e->reg));
             break;
@@ -988,8 +998,8 @@ struct expr *expr_eval_const(struct expr *e){
         }
         case EXPR_EXP: {
             struct expr *to_return = expr_create_integer_literal(
-                // implicitly casting from int to float to int
-                pow(l->data->int_data, r->data->int_data)
+                // emulate EXACTLY the behavior we'd get at runtime
+                bminor_runtime_pow(l->data->int_data, r->data->int_data)
             );
             expr_delete(l);
             expr_delete(r);
@@ -1062,7 +1072,7 @@ void expr_print(struct expr *e){
             break;
         case EXPR_STR_LIT:
             // revrese clean string function from scanner
-            descape_and_print_str_lit(e->data->str_data);
+            descape_and_print_str_lit(stdout, e->data->str_data);
             break;
         case EXPR_CHAR_LIT:
             descape_and_print_char_lit(e->data->char_data);
@@ -1149,7 +1159,7 @@ void descape_and_print_char_lit(char c){
     free(clean_c);
 }
 
-void descape_and_print_str_lit(const char *s){
+void descape_and_print_str_lit(FILE *output, const char *s){
     // we'll need at most twice the characters, plus delimeters, plus nul
     char *clean = malloc(2 * strlen(s) + 3);
     if(!clean){
@@ -1164,7 +1174,7 @@ void descape_and_print_str_lit(const char *s){
         free(next);
     }
     strcat(clean, "\"");
-    fputs(clean, stdout);
+    fputs(clean, output);
     free(clean);
 }
 

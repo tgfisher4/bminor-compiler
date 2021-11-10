@@ -86,6 +86,7 @@ struct expr * expr_create_empty();
 struct expr * expr_copy(struct expr *e);
 void expr_delete(struct expr *e);
 
+void descape_and_print_str_lit(FILE *output, const char *s);
 void expr_print( struct expr *e );
 void expr_print_list( struct expr *e, char *delim );
 

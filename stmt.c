@@ -232,11 +232,11 @@ void stmt_code_gen(FILE *output, struct stmt *s, char *enc_func){
         }
         case STMT_IF_ELSE: {
             expr_code_gen(output, s->expr_list);
-            fprintf(output, "CMP %%r%s, $0\n",
+            fprintf(output, "CMP\t$0, %%r%s\n", // true if non-zero
                     scratch_name(s->expr_list->reg));
             scratch_free(s->expr_list->reg);
             char *else_label = label_create();
-            fprintf(output, "JE %s\n", else_label);
+            fprintf(output, "JE\t%s\n", else_label);
             stmt_list_code_gen(output, s->body, enc_func);
             fprintf(output, "    %s:\n", else_label);
             if( s->body->next ){ // Generate else block if present
@@ -253,8 +253,8 @@ void stmt_code_gen(FILE *output, struct stmt *s, char *enc_func){
             // Test condition
             fprintf(output, "    %s:\n", test_label);
             expr_code_gen(output, s->expr_list->next);
-            fprintf(output, "CMP %%r%s, $0\n"
-                            "JE %s\n",
+            fprintf(output, "CMP\t$0, %%r%s\n" // true if non-zero
+                            "JE\t%s\n",
                     scratch_name(s->expr_list->next->reg),
                     exit_label);
             scratch_free(s->expr_list->next->reg);
@@ -263,8 +263,13 @@ void stmt_code_gen(FILE *output, struct stmt *s, char *enc_func){
             // Step
             expr_code_gen(output, s->expr_list->next->next);
             scratch_free(s->expr_list->next->next->reg); // discard result: only side effects relevant
-            // Exit label
+            // Loop
+            fprintf(output, "JMP\t%s\n", test_label);
+            // Exit outside of loop
             fprintf(output, "    %s:\n", exit_label);
+
+            free(test_label);
+            free(exit_label);
             break;
         }
         case STMT_PRINT: {
@@ -272,13 +277,13 @@ void stmt_code_gen(FILE *output, struct stmt *s, char *enc_func){
                 // TODO: figure out runtime stuff
                 // Transform each element into a call to the runtime print funcs
                 struct type *t = expr_typecheck(e);
-                // 6 = len(print_),
+                // 21 = len(bminor_runtime_print_),
                 // 7 = max(len(integer), len(char), len(string), len(boolean)
                 // 1 = \0
-                char func_name[6 + 7 + 1];
-                sprintf(func_name, "print_%s", type_t_to_str(t->kind));
+                char func_name[21 + 7 + 1];
+                sprintf(func_name, "bminor_runtime_print_%s", type_t_to_str(t->kind));
                 struct expr *arg = expr_copy(e);
-                arg->next = NULL; // o/w, the print_call will seem to include several args
+                arg->next = NULL; // o/w, print_call will seem to include several args
                 struct expr *print_call = expr_create_function_call(
                     expr_create_identifier(func_name),
                     arg
@@ -292,8 +297,8 @@ void stmt_code_gen(FILE *output, struct stmt *s, char *enc_func){
         }
         case STMT_RETURN: {
             expr_code_gen(output, s->expr_list);
-            fprintf(output, "MOVQ %%r%s, %%rax\n"
-                            "JMP %s_postamble",
+            fprintf(output, "MOVQ\t%%r%s, %%rax\n"
+                            "JMP\t%s_postamble\n",
                     scratch_name(s->expr_list->reg),
                     enc_func);
             scratch_free(s->expr_list->reg);

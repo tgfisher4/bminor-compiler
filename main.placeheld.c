@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <unistd.h>
 
 typedef enum yytokentype token_t;
 
@@ -35,7 +36,8 @@ int SCAN      = 0,
     PPRINT    = 2,
     RESOLVE   = 3,
     TYPECHECK = 4,
-    CODEGEN   = 5;
+    CODEGEN   = 5,
+    COMPILE   = 6;
 
 int   typecheck_errors;
 
@@ -44,21 +46,21 @@ void usage(int return_code, char *called_as){
 "usage: %s [options]\n"
 "\n"
 "Options:\n"
-"   -scan <file>    Scans <file> and outputs tokens encountered\n"
-"   -parse <file>   Scans <file> quietly and reports whether parse was successful\n"
-"   -print <file>   Scans and parses <file> quietly and outputs a nicely formatted version of the bminor program <file>\n"
-"   -resolve <file> Scans, parses, and builds AST for program <file> quietly, then resolves all variable references\n"
-"   -typecheck <file> Scans, parses, and builds AST for program <file> queitly, then resolves and typechecks\n"
-"   -codegen <file> <output> Scans, parses, built AST for program <file>, resolves and typechecks, and generates assembly program <output>\n"
+"   --scan <file>    Scans <file> and outputs tokens encountered\n"
+"   --parse <file>   Scans <file> quietly and reports whether parse was successful\n"
+"   --print <file>   Scans and parses <file> quietly and outputs a nicely formatted version of the bminor program <file>\n"
+"   --resolve <file> Scans, parses, and builds AST for program <file> quietly, then resolves all variable references\n"
+"   --typecheck <file> Scans, parses, and builds AST for program <file> queitly, then resolves and typechecks\n"
+"   --codegen <file> <output> Scans, parses, built AST for program <file>, resolves and typechecks, and generates assembly program <output>\n"
             , called_as);
     exit(return_code);
 }
 
 int main(int argc, char **argv){
     // default values
-    bool stages[] = {false, false, false, false, false};
-    char *to_compile  = "";
-    char *output_file = "";
+    bool stages[] = {false, false, false, false, false, false, false};
+    char *to_compile  = NULL;
+    char *output_file = NULL;
 
     bool run_all = true;
 
@@ -68,43 +70,51 @@ int main(int argc, char **argv){
     for(int i = 0; i < 4; i++)      run_all = run_all && !stages[i];
 
     /* scan */
-    if (scan_file(to_compile, stages[SCAN])){
-        puts("Scan unsuccessful");
-        return EXIT_FAILURE;
-    }
-    else if (stages[SCAN])
+    if( stages[SCAN] ){
+        if(!to_compile){
+            printf("[ERROR|file] Input filename not provided\n");
+            return EXIT_FAILURE;
+        }
+        if (scan_file(to_compile, !stages[PARSE])){
+            puts("Scan unsuccessful");
+            return EXIT_FAILURE;
+        }
         puts("Scan successful");
+    }
 
     /* parse */
-    if (stages[PARSE] || stages[PPRINT] || stages[RESOLVE] || stages[TYPECHECK]) {
+    if (stages[PARSE]) {
+        if(!to_compile){
+            printf("[ERROR|file] Input filename not provided\n");
+            return EXIT_FAILURE;
+        }
         if (parse_file(to_compile)) {
             puts("Parse unsuccessful");
             return EXIT_FAILURE;
         }
-        else if (stages[PARSE])
-            puts("Parse successful");
+        puts("Parse successful");
     }
     
     /* print */
-    if (stages[PPRINT]) { print_ast(ast); puts(""); }
+    if( stages[PPRINT] ){
+        print_ast(ast);
+        puts("");
+    }
 
     /* resolve */
-    // if resolve or typecheck or...
-    if( stages[RESOLVE] || stages[TYPECHECK] ){
-        int err_count = resolve_ast(ast, stages[RESOLVE]);
-        if( stages[RESOLVE] ) puts("");
+    if( stages[RESOLVE] ){
+        int err_count = resolve_ast(ast, !stages[TYPECHECK]);
+        if( !stages[TYPECHECK] ) puts("");
         if(err_count){
             printf("Encountered %d name resolution error%s\n", err_count, err_count == 1 ? "" : "s");
             puts("Name resolution unsuccessful");
             return EXIT_FAILURE;
         }
-        else if(stages[RESOLVE]){
-            puts("Name resolution successful");
-        }
+        puts("Name resolution successful");
     }
 
     /* typecheck */ 
-    if( stages[TYPECHECK] || stages[CODEGEN] ){
+    if( stages[TYPECHECK] ){
         typecheck_ast(ast);
         if(typecheck_errors){
             printf("\nEncountered %d typechecking error%s\n",
@@ -113,16 +123,31 @@ int main(int argc, char **argv){
             puts("Typecheck unsuccessful");
             return EXIT_FAILURE;
         }
-        else if(stages[TYPECHECK]){
-            puts("Typecheck successful");
-        }
+        puts("Typecheck successful");
     }
 
     /* codegen */
     if( stages[CODEGEN] ){
+        if(!output_file){
+            printf("[ERROR|file] Output filename not provided\n");
+            return EXIT_FAILURE;
+        }
         code_gen_ast(output_file, ast);
         puts("Code generation successful."); 
     }
+
+    /* compile */
+    if( stages[COMPILE] ){
+        if(!output_file){
+            output_file = "a.out";
+            puts("No output file given: outputting binary to a.out.");
+        }
+        char *assembly_filename = ".tmp.bminor.s";
+        code_gen_ast(assembly_filename, ast);
+        puts("Code generation successful."); 
+        execl("../complete_compilation.sh", "../complete_compilation.sh", output_file, NULL);
+    }
+
 
     return EXIT_SUCCESS;
 }
@@ -130,34 +155,54 @@ int main(int argc, char **argv){
 void process_cl_args(int argc, char **argv, bool *stages, char **to_compile, char **output_file){ 
 
     for (int i = 1; i < argc; i++){
-        if (!strcmp("-scan", argv[i])){
+        if (!strcmp("--scan", argv[i])){
              stages[SCAN] = true;
         }
-        else if (!strcmp("-parse", argv[i])){
+        else if (!strcmp("--parse", argv[i])){
+            stages[SCAN] = true;
             stages[PARSE] = true;
         }
-        else if (!strcmp("-print", argv[i])){
+        else if (!strcmp("--print", argv[i])){
+            stages[SCAN] = true;
+            stages[PARSE] = true;
             stages[PPRINT] = true;
         }
-        else if (!strcmp("-resolve", argv[i])){
+        else if (!strcmp("--resolve", argv[i])){
+            stages[SCAN] = true;
+            stages[PARSE] = true;
             stages[RESOLVE] = true;
         }
-        else if (!strcmp("-typecheck", argv[i])){
+        else if (!strcmp("--typecheck", argv[i])){
+            stages[SCAN] = true;
+            stages[PARSE] = true;
+            stages[RESOLVE] = true;
             stages[TYPECHECK] = true;
         }
-        else if (!strcmp("-codegen", argv[i])){
+        else if (!strcmp("--codegen", argv[i])){
+            stages[SCAN] = true;
+            stages[PARSE] = true;
+            stages[RESOLVE] = true;
+            stages[TYPECHECK] = true;
             stages[CODEGEN] = true;
         }
-        else if ( !strcmp("-help", argv[i]) || !strcmp("-h", argv[i]) ){
+        else if (!strcmp("--compile", argv[i])){
+            stages[SCAN] = true;
+            stages[PARSE] = true;
+            stages[RESOLVE] = true;
+            stages[TYPECHECK] = true;
+            //stages[CODEGEN] = true;
+            stages[COMPILE] = true;
+        }
+        else if ( !strcmp("--help", argv[i]) || !strcmp("-h", argv[i]) ){
             usage(EXIT_SUCCESS, argv[0]);
         }
         else {
             // if we've already assigned the file to compile and the file to which to output
-            if (**to_compile && **output_file)  usage(EXIT_FAILURE, argv[0]);
+            if (*to_compile && *output_file)  usage(EXIT_FAILURE, argv[0]);
             // shouldn't need to worry about data pointed to going out of scope here since this isn't being assigned to something on the stack
             // first arg is the file to compile, second is file to which to output
-            else if (*to_compile)               *to_compile  = argv[i];
-            else                                *output_file = argv[i];
+            else if (*to_compile)              *output_file  = argv[i];
+            else                               *to_compile   = argv[i];
         }
     }
 }
@@ -175,6 +220,11 @@ void typecheck_ast(struct decl *ast){ decl_list_typecheck(ast, true); }
 
 void code_gen_ast(char *filename, struct decl *ast){
     FILE *output = fopen(filename, "w");
+    if(!output) {
+        printf("[ERROR|file] Could not open %s! %s\n", filename, strerror(errno));
+        // this is only possible source of code generation error
+        exit(1);
+    }
     decl_global_list_code_gen(output, ast);
     fclose(output);
 }
